@@ -26,6 +26,7 @@ Você é o engenheiro responsável pelo sistema **Coruja Inferior**: app Expo (w
 - **Dinheiro:** `numeric(12,2)` no banco; centavos inteiros no app (`src/lib/dinheiro.ts`) com o mesmo arredondamento (`round` meio para longe do zero). Taxa por item; a loja absorve a taxa; divisão sobre o líquido (Ambos 50/50, centavo ímpar para a Coruja); faturamento nunca é somado pelos lançamentos.
 - **Repasse à Arquibancada:** tudo que é atribuído a ela fica pendente até a baixa semanal; cancelamento após repasse vira estorno.
 - **Nunca edite uma migration existente.** Toda mudança de banco é uma migration nova em `supabase/migrations/` (siga o passo a passo em `docs/banco-de-dados.md`: `create or replace` mantendo assinatura; `drop` + `create` se mudar parâmetros; `revoke … from public, anon` + `grant … to authenticated`; RLS em tabela nova).
+- Tabela nova de dados operacionais → inclua no `truncate` de `supabase/limpar-dados.sql`.
 - Não reintroduza importação de planilha nem use as colunas legadas listadas em `docs/decisoes-e-pendencias.md`.
 - Nunca coloque segredos (service role, senha do banco, chaves de OCR) no app.
 

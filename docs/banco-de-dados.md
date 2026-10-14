@@ -30,6 +30,10 @@ Todo o schema está em `supabase/migrations/`, aplicado **em ordem**. As migrati
 6. Adicione testes em `tests/db.test.mjs` e rode `npm test`.
 7. Atualize a lista do `README.md` (passo "Crie o banco") e este documento.
 
+### Limpar os dados (zerar o sistema)
+
+`supabase/limpar-dados.sql` (**não** é migration; rodar manualmente no SQL Editor). Apaga produtos, histórico, reservas, vendas, recebimentos, lançamentos, repasses, alertas e orçamentos, reinicia a numeração dos orçamentos e os contadores de código das categorias. Mantém usuários, categorias, taxas, serviços, status de orçamento e consignantes (opcionais comentados no arquivo). Fotos: Storage › bucket `produtos` › **Empty bucket** (o Supabase bloqueia apagar `storage.objects` por SQL). Ao criar tabela nova de dados, inclua-a na lista do `truncate`.
+
 ## Tipos (enums)
 
 | Tipo | Valores |

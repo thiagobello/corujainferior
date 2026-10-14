@@ -2,11 +2,26 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import type { ItemOrcamento, Orcamento, PecaOrcamento } from './api';
-import { montarHtmlOrcamento } from './orcamento-html';
+import { montarHtmlOrcamento, numeroOrcamento } from './orcamento-html';
 
-/** Gera o PDF (A4) e abre o menu de compartilhar (WhatsApp, e-mail, salvar…). */
-export async function gerarPdfOrcamento(o: Orcamento, pecas: PecaOrcamento[], itens: ItemOrcamento[]) {
-  const html = montarHtmlOrcamento(o, pecas, itens);
-  const { uri } = await Print.printToFileAsync({ html, width: 595, height: 842 });
-  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Orçamento ${o.numero}` });
+export interface ArquivoPdf {
+  nome: string;
+  uri?: string; // celular
+  arquivo?: File; // web
 }
+
+/** Gera o PDF (A4) no cache do aparelho. */
+export async function criarPdfOrcamento(o: Orcamento, pecas: PecaOrcamento[], itens: ItemOrcamento[]): Promise<ArquivoPdf> {
+  const { uri } = await Print.printToFileAsync({ html: montarHtmlOrcamento(o, pecas, itens), width: 595, height: 842 });
+  return { nome: `Orçamento ${numeroOrcamento(o.numero)}.pdf`, uri };
+}
+
+export const podeCompartilhar = (_a: ArquivoPdf) => true;
+
+/** Abre o menu de compartilhar (WhatsApp, e-mail, salvar…). */
+export async function compartilharPdf(a: ArquivoPdf): Promise<'compartilhado' | 'baixado' | 'cancelado'> {
+  await Sharing.shareAsync(a.uri!, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: a.nome });
+  return 'compartilhado';
+}
+
+export const baixarPdf = compartilharPdf;

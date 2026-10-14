@@ -9,7 +9,7 @@
 | Backend | **Supabase**: Postgres, Auth (e-mail/senha), Storage (bucket `produtos`) | Plano gratuito. Cliente `@supabase/supabase-js`. |
 | Sessão | `expo-sqlite/localStorage` no celular; `window.localStorage` na web | Arquivos `src/lib/armazenamento.ts` / `.web.ts`. |
 | Fotos | `expo-image-picker` (câmera/galeria), `expo-image` (exibição) | Upload em `src/lib/fotos.ts` para o bucket `produtos`. |
-| PDF (orçamentos) | `expo-print` + `expo-sharing` no celular; janela de impressão na web | HTML único em `src/lib/orcamento-html.ts`. |
+| PDF (orçamentos) | Celular: `expo-print` (HTML de `orcamento-html.ts`) + `expo-sharing`. Web: **pdfmake 0.3** gera o arquivo no aparelho (`orcamento-pdfmake.ts`, carregado sob demanda) + Web Share (`navigator.share`) ou download | Na web não usar `window.open`/`print()`: falham no iPhone com o site como atalho em tela cheia. |
 | Exportação XLSX/CSV | SheetJS (`xlsx` 0.20.3 via CDN oficial) | `src/lib/exportar*.ts` (download na web, compartilhar no celular). |
 | IDs | `expo-crypto` (`randomUUID`) | Usado na chave de idempotência das vendas. |
 | Ícones | `@expo/vector-icons` (Ionicons) | |

@@ -1,15 +1,15 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { useDialogos } from '@/components/dialogos';
 import { Selecao } from '@/components/selecao';
 import { SeloOrcamento } from '@/components/status-orcamento';
-import { Botao, Cartao, Carregando, ErroCaixa, Foto, Linha, ParValor, Secao, Separador, T, Tela } from '@/components/ui';
+import { Aviso, Botao, Cartao, Carregando, ErroCaixa, Foto, Linha, ParValor, Secao, Separador, T, Tela } from '@/components/ui';
 import { alterarStatusOrcamento, listarStatusOrcamento, obterOrcamento } from '@/lib/api';
 import { brlReais } from '@/lib/dinheiro';
 import { numeroOrcamento } from '@/lib/orcamento-html';
-import { gerarPdfOrcamento } from '@/lib/orcamento-pdf';
+import { baixarPdf, compartilharPdf, criarPdfOrcamento, podeCompartilhar, type ArquivoPdf } from '@/lib/orcamento-pdf';
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO } from '@/lib/tema';
 import { dataBR, dataHoraBR } from '@/lib/tipos';
@@ -23,6 +23,8 @@ export default function DetalheOrcamento() {
     return { ...o, status };
   }, [id]);
   const [gerando, setGerando] = useState(false);
+  // PDF pronto (web): o compartilhar precisa sair de um toque do usuário.
+  const [pdfPronto, setPdfPronto] = useState<{ arquivo: ArquivoPdf; versao: string } | null>(null);
   const [mudando, setMudando] = useState(false);
 
   if (erro) return <Tela onAtualizar={recarregar}><ErroCaixa erro={erro} onTentar={recarregar} /></Tela>;
@@ -30,16 +32,31 @@ export default function DetalheOrcamento() {
   const { orcamento: o, pecas, itens, historico, status } = dados;
   const rotulo = (cod: string | null) => status.find((s) => s.codigo === cod)?.rotulo ?? cod ?? '';
 
-  async function pdf() {
+  async function gerarPdf() {
     setGerando(true);
     try {
-      await gerarPdfOrcamento(o, pecas, itens);
+      const arquivo = await criarPdfOrcamento(o, pecas, itens);
+      if (Platform.OS === 'web') setPdfPronto({ arquivo, versao: o.atualizado_em });
+      else await compartilharPdf(arquivo);
     } catch (e) {
       avisar(mensagemErro(e), 'erro');
     } finally {
       setGerando(false);
     }
   }
+
+  async function entregarPdf(acao: 'compartilhar' | 'baixar') {
+    if (!pdfPronto) return;
+    try {
+      const r = acao === 'compartilhar' ? await compartilharPdf(pdfPronto.arquivo) : await baixarPdf(pdfPronto.arquivo);
+      if (r === 'baixado') avisar('PDF baixado');
+    } catch (e) {
+      avisar(mensagemErro(e), 'erro');
+    }
+  }
+
+  // PDF gerado antes de uma edição fica desatualizado.
+  const pdf = pdfPronto?.versao === o.atualizado_em ? pdfPronto.arquivo : null;
 
   async function mudarStatus(novo: string | null) {
     if (!novo || novo === o.status) return;
@@ -71,9 +88,22 @@ export default function DetalheOrcamento() {
       </View>
 
       <Linha>
-        <Botao titulo="Gerar PDF" icone="document-text-outline" onPress={pdf} carregando={gerando} estilo={{ flex: 1 }} />
+        <Botao titulo="Gerar PDF" icone="document-text-outline" onPress={gerarPdf} carregando={gerando} estilo={{ flex: 1 }} />
         <Botao v="secundario" titulo="Editar" icone="create-outline" onPress={() => router.push(`/orcamentos/editar/${o.id}`)} estilo={{ flex: 1 }} />
       </Linha>
+
+      {pdf && (
+        <Aviso
+          tipo="sucesso"
+          texto="PDF pronto."
+          acao={
+            <Linha gap={ESPACO.xs}>
+              {podeCompartilhar(pdf) && <Botao compacto titulo="Compartilhar" icone="share-outline" onPress={() => entregarPdf('compartilhar')} />}
+              <Botao compacto v="secundario" titulo="Baixar" icone="download-outline" onPress={() => entregarPdf('baixar')} />
+            </Linha>
+          }
+        />
+      )}
 
       <Selecao rotulo={mudando ? 'Alterando status…' : 'Status'} opcoes={opcoesStatus} valor={o.status} onChange={mudarStatus} />
 

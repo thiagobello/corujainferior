@@ -77,7 +77,8 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 | `fotos.ts` | `escolherFoto('camera'|'galeria')`, `enviarFoto(uri, pasta)` |
 | `exportar.ts` / `.web.ts` / `exportar-base.ts` | XLSX/CSV: compartilhar no celular, download na web |
 | `orcamento-html.ts` | HTML A4 do orçamento + `OBSERVACOES_ORCAMENTO` + `numeroOrcamento` |
-| `orcamento-pdf.ts` / `.web.ts` | PDF via `expo-print` (celular) ou janela de impressão (web) |
+| `orcamento-pdf.ts` / `.web.ts` | `criarPdfOrcamento` → `ArquivoPdf`; `compartilharPdf`, `baixarPdf`, `podeCompartilhar`. Celular: `expo-print` + compartilhar. Web: pdfmake (import dinâmico, chunk separado) + Web Share/download |
+| `orcamento-pdfmake.ts` | Documento do orçamento no formato pdfmake (mesmo visual do HTML) |
 | `logo-marca.ts` | Logo em base64 (gerada de `assets/images/logo-marca.jpg`) |
 | `avulsos-recentes.ts` | Últimos itens avulsos no aparelho |
 | `armazenamento.ts` / `.web.ts` | Storage da sessão do Supabase |
@@ -86,7 +87,7 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 
 - **Cadastrar:** categoria → descrição (autocomplete/vínculo) → tamanhos e quantidades (códigos sugeridos, editáveis) → tipo/condição → pertence → valores → foto → site → `criar_produtos(dados, tamanhos[], codigos[])` (um elemento por unidade). Foto nova é enviada antes; vínculo reaproveita `foto_path`.
 - **Vender:** buscar código (`buscarPorCodigo`, aceita `SA1` p/ `SA01`) ou item avulso → valor efetivo → forma → confirmação → `registrar_venda` com chave UUID (mantida em reenvio; nova após sucesso) → `obterVenda` → `verificarAlertasSite()`.
-- **Orçamento:** cliente → camisas (nome, fotos, serviços) → `salvar_orcamento` → detalhe → status / Gerar PDF.
+- **Orçamento:** cliente → camisas (nome, fotos, serviços) → `salvar_orcamento` → detalhe → status / Gerar PDF. No celular, Gerar PDF já abre o compartilhar; **na web** gera o arquivo e mostra **Compartilhar** / **Baixar** (o compartilhar do navegador exige um toque direto do usuário, então não pode ser chamado depois da geração assíncrona).
 
 ## Padrões de interface
 

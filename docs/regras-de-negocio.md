@@ -110,6 +110,7 @@ Sobre o **líquido** (após a taxa), por item:
   - Nem sempre é possível a remoção de todas as manchas.
   - Tempo médio para conclusão – 20 dias úteis.
   - Formas de pagamento: Pix e Cartão de Crédito – até 3x sem juros.
+- Entrega do PDF: no app nativo abre o compartilhar; na web (inclusive atalho no iPhone) o PDF é gerado no aparelho e a pessoa toca em **Compartilhar** (WhatsApp, Arquivos…) ou **Baixar**. Editar o orçamento invalida o PDF gerado antes.
 - Alterar valor de serviço no catálogo não muda orçamentos já criados.
 
 ## 12. Painel financeiro (Mais › Painel)
