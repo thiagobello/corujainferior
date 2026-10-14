@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "corujainferior",
+    "name": "Coruja Inferior",
     "slug": "corujainferior",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,8 +20,10 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "name": "Coruja Inferior",
+      "lang": "pt-BR"
     },
     "plugins": [
       "expo-router",
@@ -31,6 +33,24 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      "expo-sqlite",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite escolher fotos dos produtos.",
+          "cameraPermission": "Permite fotografar produtos e etiquetas.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permite ler as etiquetas dos produtos pela câmera.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ]
     ],

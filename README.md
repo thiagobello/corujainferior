@@ -1,56 +1,70 @@
-# Welcome to your Expo app 👋
+# Coruja Inferior
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Estoque, vendas e financeiro das marcas Coruja Sports e Arquibancada Inferior. Um único código Expo (React Native) gera o **site responsivo** e os **apps iOS/Android**. O banco é **Supabase** (Postgres + login + fotos).
 
-## Get started
+## Configuração (uma vez)
 
-1. Install dependencies
+1. **Crie um projeto** em [supabase.com](https://supabase.com) (o plano gratuito atende).
+2. **Crie o banco:** no painel do Supabase, abra **SQL Editor** e execute, nesta ordem, o conteúdo de:
+   - `supabase/migrations/20261013000001_schema.sql`
+   - `supabase/migrations/20261013000002_funcoes.sql`
+   - `supabase/migrations/20261013000003_storage.sql`
+   - `supabase/migrations/20261013000004_categorias_repasses.sql`
+   - `supabase/migrations/20261013000005_repasse_arquibancada.sql`
+   - `supabase/migrations/20261013000006_codigo_manual.sql`
+   - `supabase/migrations/20261013000007_grupos.sql`
+   - `supabase/migrations/20261013000008_gerenciar_categorias.sql`
+   - `supabase/migrations/20261013000009_venda_avulsa.sql`
+   - `supabase/migrations/20261013000010_recebimento_dia_util.sql`
+   - `supabase/migrations/20261013000011_orcamentos.sql`
+   - `supabase/migrations/20261013000012_orcamento_pecas.sql`
+   - `supabase/migrations/20261014000013_sugerir_modelos.sql`
 
-   ```bash
-   npm install
-   ```
+   (Ou, com a [Supabase CLI](https://supabase.com/docs/guides/cli): `npx supabase link` e depois `npx supabase db push`.)
+3. **Login:** em **Authentication › Sign In / Providers › Email**, decida se quer exigir confirmação de e-mail. Se mantiver ativada, cada novo usuário precisa clicar no link recebido antes de entrar.
+4. **Chaves do app:** copie `.env.example` para `.env.local` e preencha com os valores de **Project Settings › API** (URL e *publishable key*).
+5. **Primeiro acesso:** rode o app e crie a primeira conta. **Ela vira administradora automaticamente**; as próximas entram como vendedoras.
+6. **Taxas:** em **Mais › Taxas**, cadastre os percentuais da maquininha. Eles começam em 0%.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Rodando
 
 ```bash
-npm run reset-project
+npx expo start        # abre o menu: w = navegador, QR code = celular (Expo Go)
+npm test              # testes do banco e dos cálculos
+npm run typecheck
+npx expo lint
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Para publicar o site de graça (Cloudflare Pages ou Vercel), siga [docs/publicacao.md](docs/publicacao.md). HTTPS é obrigatório para a câmera funcionar no navegador.
 
-### Other setup steps
+## Regras importantes
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- **Códigos:** no cadastro, o app sugere o próximo código livre da categoria (ex.: M1387), e você pode trocá-lo pelo código da etiqueta. O banco recusa um número que já exista na categoria, mesmo escrito de outra forma (M1386 = M01386). O código é obrigatório no cadastro. Depois de salvo, o código não muda. Produtos não são apagados, apenas arquivados, então um código usado nunca é reaproveitado.
+- **Cadastro de modelo existente:** ao digitar a descrição, o app sugere modelos já cadastrados com nome parecido (ignora acentos, maiúsculas e a ordem das palavras). Tocar num deles preenche categoria, tipo, condição, pertence, valores e foto com os dados do modelo. Para cada tamanho dá para informar a quantidade (ex.: 5 no M), e cada unidade recebe um código próprio (até 50 por cadastro).
+- **Status** só muda por reserva, empréstimo, venda ou cancelamento. Não dá para editar o status "na mão".
+- **Venda** é uma transação única no banco (`registrar_venda`): confere se a peça está Disponível, calcula a taxa, grava os valores, divide entre as marcas, cria as parcelas, muda o status e gera o lembrete do site. Um clique duplo ou um reenvio após queda de conexão usa a mesma chave e **não duplica a venda**. A Baixa Rápida e a tela de vendas usam a mesma função.
+- **Taxa:** a loja absorve. O cliente paga o valor efetivo e o líquido é `bruto − bruto × taxa%`, arredondado ao centavo. Cada venda guarda o percentual usado, então mudar a configuração não altera vendas antigas.
+- **Divisão:** Coruja ou Arquibancada ficam com 100% do líquido. Em "Ambos" o líquido é dividido em 50/50, e o centavo ímpar fica com a Coruja, de modo que a soma bate exatamente. Em "Concessão", o valor devido ao proprietário segue o acordo (percentual do líquido ou valor fixo) e o restante vai para a marca configurada.
+- **Repasse à Arquibancada:** todo o dinheiro entra na maquininha da Coruja. A parte da Arquibancada fica pendente: 100% do líquido nas peças "Arquibancada Inferior", 50% nas peças "Ambos" e a comissão de concessão quando destinada a ela. Esses valores aparecem em **Mais › Repasses**, agrupados por semana (segunda a domingo). Um administrador dá baixa quando faz o repasse. Se uma venda já repassada for cancelada, o valor volta como estorno negativo no repasse seguinte.
+- **Categorias:** cada categoria tem uma sigla de 1 a 3 letras, usada nos códigos (Masculino → M001). Administradores gerenciam as categorias em **Mais › Categorias**: criar, renomear, arquivar/reativar e excluir. A sigla não muda depois de criada, porque já está nas etiquetas. Só categorias que nunca tiveram produto podem ser excluídas. As demais são arquivadas: saem do cadastro, mas os produtos continuam no estoque.
+- **Venda avulsa:** itens sem cadastro (ex.: isqueiros) são lançados na hora da venda, em **Mais › Venda avulsa** ou pelo botão "Item sem cadastro" na Baixa Rápida e na Nova venda. Informe descrição, quantidade, valor e a quem pertence. Taxa, divisão entre marcas, repasse e painel seguem as mesmas regras dos produtos. Esses itens não mexem no estoque. Os últimos itens vendidos aparecem como atalho no aparelho.
+- **Orçamentos (reformas):** na aba **Orçamentos** do menu inferior, informe o cliente e o telefone ou Instagram, e adicione uma ou mais **camisas**. Cada camisa tem nome (ex.: "Corinthians 2009"), fotos, serviços separados em **Frente**, **Verso** e **Mangas e outros**, e valor próprio. O orçamento mostra o valor de cada camisa e o total. Serviços "a partir de" (Estampas/Personalizações) têm o valor digitado na hora, com um campo para descrever o que será feito. Todo orçamento nasce como **Pendente**, e o status muda no detalhe. O botão **Gerar PDF** cria o orçamento com a logo, um bloco por camisa (sem fotos; elas ficam só no app) e as observações da tabela: no celular abre o compartilhar, no navegador abre a impressão ("Salvar como PDF"). Em **Mais › Serviços e status** dá para editar serviços (posição, variação, valor) e ativar ou criar status. Para trocar a logo, substitua `assets/images/logo-marca.jpg` e regenere `src/lib/logo-marca.ts`.
+- **Recebimento:** Pix conta como recebido na hora. Débito e crédito (1x, 2x ou 3x) caem de uma vez no próximo dia útil (segunda a sexta; feriados não são considerados) e contam como recebidos nessa data, sem parcelas futuras. "Pagamento pendente" só conta depois de marcado como recebido em **Mais › A receber**.
 
-## Learn more
+## Estrutura
 
-To learn more about developing your project with Expo, look at the following resources:
+```
+supabase/migrations/   schema, funções (cadastro, venda, reserva, repasse, painel) e storage
+src/app/               telas (Expo Router)
+src/components/        componentes de interface e formulários
+src/lib/               acesso a dados e cálculos monetários
+tests/                 testes com Postgres embutido (PGlite)
+docs/                  documentação completa (arquitetura, regras, banco, telas, decisões)
+.claude/agents/        agente especialista do sistema (coruja-especialista)
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Para qualquer mudança, comece por [docs/README.md](docs/README.md). No Claude Code, use o agente **coruja-especialista**, que já carrega todo esse contexto.
 
-## Join the community
+## Pendente
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- **Escanear Tag (OCR):** a tela já localiza o produto pelo código digitado (a alternativa manual). Falta conectar a leitura do código manuscrito pela câmera.
