@@ -37,7 +37,7 @@ export default function Cadastrar() {
 
   if (criados) {
     return (
-      <Tela>
+      <Tela bordas={[]}>
         <Aviso tipo="sucesso" texto={criados.length > 1 ? `${criados.length} produtos cadastrados.` : 'Produto cadastrado.'} />
         {criados.map((p) => (
           <ProdutoLinha key={p.id} p={p} onPress={() => router.push(`/produto/${p.id}`)} />
@@ -49,7 +49,7 @@ export default function Cadastrar() {
   }
 
   return (
-    <Tela {...puxar}>
+    <Tela {...puxar} bordas={[]}>
       <ProdutoForm key={chave} modo="novo" salvando={salvando} onSalvar={salvar} recarga={recarga} />
     </Tela>
   );

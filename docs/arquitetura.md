@@ -29,6 +29,7 @@ src/components/           Componentes de interface e formulários (sem rotas)
 src/lib/                  Acesso a dados (api.ts), regras de cálculo, utilitários, tipos
 tests/                    Testes de banco (PGlite) e de cálculo
 assets/images/            Ícones e logo da marca (logo-marca.jpg)
+public/index.html         HTML da web (viewport-fit=cover para a área segura do iPhone em tela cheia)
 wrangler.jsonc            Publicação no Cloudflare Workers (SPA a partir de dist/)
 vercel.json               Publicação na Vercel
 docs/                     Esta documentação

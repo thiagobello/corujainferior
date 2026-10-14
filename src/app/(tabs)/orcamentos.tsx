@@ -31,7 +31,7 @@ export default function Orcamentos() {
   const opcoes = (dados?.status ?? []).filter((s) => s.ativo || usados.has(s.codigo));
 
   return (
-    <Tela atualizando={carregando} onAtualizar={recarregar}>
+    <Tela atualizando={carregando} onAtualizar={recarregar} bordas={[]}>
       <Botao icone="add" titulo="Novo orçamento" onPress={() => router.push('/orcamentos/novo')} />
       <Campo placeholder="Buscar cliente ou número" value={busca} onChangeText={setBusca} autoCorrect={false} />
       <Chips

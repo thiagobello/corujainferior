@@ -20,6 +20,7 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 | 2026-10-13 | Orçamentos de reforma com várias camisas, serviços por posição (frente/verso/outros), PDF com logo **sem fotos** | Pedido do dono |
 | 2026-10-14 | Autocomplete de modelos na descrição, vínculo copia dados e foto; quantidade por tamanho com código por unidade | Agilizar reposição |
 | 2026-10-14 | Bloco único "Tamanhos e códigos" (linha por tamanho com faixa de códigos editável) | Layout mais simples |
+| 2026-10-14 | Uso no iPhone como atalho em tela cheia (Safari › Adicionar à Tela de Início › Abrir como App Web); `viewport-fit=cover` para o menu não ser cortado no iPhone 17 Pro | Pedido do dono |
 | 2026-10-14 | Revisão de todos os textos: títulos, rótulos, avisos e confirmações curtos e objetivos (guia em `docs/app.md` › Textos da interface). Telas renomeadas: Painel, A receber, Repasses, Reservas, Taxas, Serviços e status, Usuários, Venda | Interface menos poluída |
 | 2026-10-13 | Publicação recomendada: web/PWA na Cloudflare (Workers ou Pages) + Supabase gratuito | 3 iPhones + 1 tablet + navegador, custo zero (iOS nativo custaria US$ 99/ano) |
 

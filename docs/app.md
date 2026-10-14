@@ -96,6 +96,7 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 - Toda tela com dados tem **puxar para atualizar**.
 - Formulários longos fecham o teclado em dropdowns/fotos (`Keyboard.dismiss()`).
 - Largura máxima de conteúdo `LARGURA_MAX` (1040) e gutter de 16 px; testado a 390 px de largura.
+- **Área segura (iPhone em tela cheia / atalho na Tela de Início):** `public/index.html` declara `viewport-fit=cover`, e `react-native-safe-area-context` lê `env(safe-area-inset-*)`. O menu inferior e os cabeçalhos já reservam a área segura. `Tela` reserva a borda de baixo por padrão (`bordas={['bottom']}`) para telas em pilha; **telas dentro das abas usam `bordas={[]}`**, senão a área fica duplicada acima do menu. Não remova o `viewport-fit=cover`: sem ele o menu fica cortado pela barrinha de gestos.
 
 ## Textos da interface
 

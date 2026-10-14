@@ -29,7 +29,7 @@ export default function Mais() {
   const { confirmar } = useDialogos();
   const puxar = usePuxar(recarregarPerfil);
   return (
-    <Tela {...puxar}>
+    <Tela {...puxar} bordas={[]}>
       <T v="legenda">
         {perfil?.nome} · {perfil?.email} · {admin ? 'Administrador' : 'Vendedor'}
       </T>
