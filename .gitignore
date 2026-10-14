@@ -44,3 +44,6 @@ example
 
 # planilhas com dados de clientes (não versionar)
 *.xlsx
+
+# Cloudflare (wrangler)
+.wrangler/

@@ -3,8 +3,10 @@
 O app web é uma SPA estática (`npx expo export --platform web` → pasta `dist/`). O banco já roda no Supabase (plano gratuito). Recomendação: **Cloudflare Pages** — gratuito, banda ilimitada para sites estáticos e permite uso comercial. (O plano gratuito da Vercel, "Hobby", é só para uso pessoal/não comercial.)
 
 Arquivos de configuração já no projeto:
-- `public/_redirects` → `/*  /index.html  200` (Cloudflare: toda rota abre o app; ex.: `/orcamentos/123`).
+- `wrangler.jsonc` → Cloudflare Workers: publica `dist/` como SPA (toda rota abre o app; ex.: `/orcamentos/123`). O `name` precisa ser igual ao nome do Worker no painel.
+- `.node-version` → Node 22 no build da Cloudflare.
 - `vercel.json` → comando de build, pasta `dist` e rewrite para `/` (Vercel).
+- Cloudflare Pages não precisa de arquivo extra: sem `404.html`, ele já trata o site como SPA.
 
 ## 1. Conferir o Supabase
 
@@ -31,37 +33,48 @@ Arquivos de configuração já no projeto:
    ```
    `.env.local` e planilhas `.xlsx` não sobem (estão no `.gitignore`).
 
-## 3. Cloudflare Pages
+## 3. Cloudflare
 
-1. Crie a conta em dash.cloudflare.com (grátis).
-2. **Workers & Pages › Create › Pages › Connect to Git** (se a tela abrir em "Workers", procure a aba/link **Pages**). Autorize o GitHub e escolha o repositório.
+A Cloudflare oferece dois caminhos gratuitos. A tela de criação costuma abrir no **Workers** (campos *Deploy command* e *Preview command*); os dois funcionam.
+
+### Opção A — Workers (tela padrão)
+
+1. dash.cloudflare.com › **Workers & Pages › Create › Import a repository** › escolha o repositório.
+2. **Project name:** `corujainferior` (igual ao `name` do `wrangler.jsonc`; se usar outro nome, altere o arquivo também).
 3. **Build settings:**
    | Campo | Valor |
    |---|---|
-   | Framework preset | None |
    | Build command | `npx expo export --platform web` |
-   | Build output directory | `dist` |
-   | Root directory | (vazio) |
-4. **Environment variables** (Production e Preview):
+   | Deploy command | `npx wrangler deploy` (padrão) |
+   | Non-production branch deploy command / Preview command | `npx wrangler versions upload` (ou deixe o padrão) |
+   | Root directory | `/` (vazio) |
+4. **Variáveis de build** (em *Advanced settings › Build variables*, ou depois em **Settings › Build › Variables and secrets**). Precisam ser de **build**, não de runtime, porque entram no app durante o build:
    | Nome | Valor |
    |---|---|
    | `EXPO_PUBLIC_SUPABASE_URL` | `https://SEU-PROJETO.supabase.co` |
    | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` |
-   | `NODE_VERSION` | `22` |
-5. **Save and Deploy.** Em ~3 minutos o app fica em `https://NOME-DO-PROJETO.pages.dev`.
-6. **Atualizações:** cada `git push` na `main` publica sozinho. Mudou uma variável de ambiente → **Deployments › Retry deployment** (as variáveis entram no build).
+5. **Deploy.** O app fica em `https://corujainferior.SEU-SUBDOMINIO.workers.dev`.
+6. **Atualizações:** cada `git push` na `main` publica sozinho. Mudou variável → **Deployments › Retry build**.
 
-**Alternativa sem GitHub (envio direto):**
+### Opção B — Pages
+
+1. **Workers & Pages › Create ›** aba/link **Pages › Connect to Git** › escolha o repositório.
+2. Framework preset **None** · Build command `npx expo export --platform web` · Build output directory `dist`.
+3. Environment variables (Production e Preview): as duas `EXPO_PUBLIC_*` acima e `NODE_VERSION` = `22`.
+4. **Save and Deploy** → `https://NOME.pages.dev`. Cada `git push` publica sozinho.
+
+### Sem GitHub (envio direto do computador)
+
 ```bash
-npx expo export --platform web        # usa o .env.local
-npx wrangler pages deploy dist --project-name coruja-inferior
+npx expo export --platform web     # usa o .env.local
+npx wrangler deploy                # Workers (usa o wrangler.jsonc)
+# ou: npx wrangler pages deploy dist --project-name corujainferior   (Pages)
 ```
-Na primeira vez o Wrangler abre o navegador para login. Repita os dois comandos a cada atualização.
 
 ## 4. Ajustar o login no Supabase
 
 1. **Authentication › URL Configuration:**
-   - Site URL: `https://NOME-DO-PROJETO.pages.dev`
+   - Site URL: a URL publicada (`…workers.dev` ou `…pages.dev`)
    - Redirect URLs: a mesma URL e `http://localhost:8081` (testes locais).
 2. Para só 3–4 usuários, considere desligar a confirmação de e-mail: **Authentication › Sign In / Providers › Email › Confirm email**. Com ela ligada, cada conta nova precisa clicar no link do e-mail (que leva à Site URL).
 
@@ -79,7 +92,7 @@ Na primeira vez o Wrangler abre o navegador para login. Repita os dois comandos 
 
 ## 7. Domínio próprio (opcional)
 
-Registre no registro.br (~R$ 40/ano para `.com.br`) e, no projeto Pages, **Custom domains › Set up a domain**; siga as instruções de DNS. Depois atualize a Site URL/Redirect URLs do Supabase.
+Registre no registro.br (~R$ 40/ano para `.com.br`) e, no projeto da Cloudflare, **Settings › Domains & Routes** (Workers) ou **Custom domains** (Pages); siga as instruções de DNS. Depois atualize a Site URL/Redirect URLs do Supabase.
 
 ## Vercel (alternativa)
 
@@ -87,5 +100,5 @@ vercel.com › **Add New › Project** › importe o repositório (o `vercel.jso
 
 ## Limites e cuidados
 
-- Cloudflare Pages gratuito: 500 builds/mês; requisições e banda de site estático ilimitadas.
+- Cloudflare gratuito: requisições a arquivos estáticos e banda ilimitadas; builds com limite mensal generoso.
 - Supabase gratuito: ~500 MB de banco, ~1 GB de fotos, pausa após 7 dias sem uso, **sem backup automático** — configure um backup periódico (ver `decisoes-e-pendencias.md`).

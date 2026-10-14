@@ -1,0 +1,12 @@
+// Publicação no Cloudflare (Workers com arquivos estáticos).
+// O build (`npx expo export --platform web`) gera a pasta dist/; toda rota
+// que não for arquivo abre o index.html (SPA), ex.: /orcamentos/123.
+// O "name" precisa ser igual ao nome do Worker criado no painel da Cloudflare.
+{
+  "name": "corujainferior",
+  "compatibility_date": "2026-10-14",
+  "assets": {
+    "directory": "./dist/",
+    "not_found_handling": "single-page-application"
+  }
+}

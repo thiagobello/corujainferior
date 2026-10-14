@@ -29,6 +29,8 @@ src/components/           Componentes de interface e formulários (sem rotas)
 src/lib/                  Acesso a dados (api.ts), regras de cálculo, utilitários, tipos
 tests/                    Testes de banco (PGlite) e de cálculo
 assets/images/            Ícones e logo da marca (logo-marca.jpg)
+wrangler.jsonc            Publicação no Cloudflare Workers (SPA a partir de dist/)
+vercel.json               Publicação na Vercel
 docs/                     Esta documentação
 .claude/agents/           Agente especialista do sistema
 ```
@@ -69,7 +71,7 @@ Sem essas variáveis o app mostra "Configuração pendente". Variáveis `EXPO_PU
 
 ## Publicação
 
-Passo a passo completo em [publicacao.md](publicacao.md). Resumo: Cloudflare Pages com build `npx expo export --platform web`, saída `dist`, variáveis `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e `NODE_VERSION=22`. `public/_redirects` (Cloudflare) e `vercel.json` (Vercel) fazem toda rota abrir o `index.html`. Supabase: ajustar Site URL e Redirect URLs para o domínio publicado.
+Passo a passo completo em [publicacao.md](publicacao.md). Resumo: Cloudflare (Workers ou Pages) com build `npx expo export --platform web`, saída `dist` e variáveis de build `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. `wrangler.jsonc` (Workers, `not_found_handling: single-page-application`), `.node-version` (Node 22) e `vercel.json` (Vercel) garantem que toda rota abra o `index.html`. Supabase: ajustar Site URL e Redirect URLs para o domínio publicado.
 
 ## Convenções de código
 

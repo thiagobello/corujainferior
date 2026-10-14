@@ -21,7 +21,7 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 | 2026-10-14 | Autocomplete de modelos na descrição, vínculo copia dados e foto; quantidade por tamanho com código por unidade | Agilizar reposição |
 | 2026-10-14 | Bloco único "Tamanhos e códigos" (linha por tamanho com faixa de códigos editável) | Layout mais simples |
 | 2026-10-14 | Revisão de todos os textos: títulos, rótulos, avisos e confirmações curtos e objetivos (guia em `docs/app.md` › Textos da interface). Telas renomeadas: Painel, A receber, Repasses, Reservas, Taxas, Serviços e status, Usuários, Venda | Interface menos poluída |
-| 2026-10-13 | Publicação recomendada: web/PWA (Cloudflare Pages/Vercel) + Supabase gratuito | 3 iPhones + 1 tablet + navegador, custo zero (iOS nativo custaria US$ 99/ano) |
+| 2026-10-13 | Publicação recomendada: web/PWA na Cloudflare (Workers ou Pages) + Supabase gratuito | 3 iPhones + 1 tablet + navegador, custo zero (iOS nativo custaria US$ 99/ano) |
 
 ## Legados (não usar em código novo)
 
@@ -33,7 +33,7 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 ## Pendências e ideias
 
 - **Escanear Tag (OCR):** ler o código manuscrito da etiqueta pela câmera. A tela `src/app/scanner.tsx` já faz a busca manual. Falta escolher o provedor (Claude Vision ou Google Cloud Vision) e criar uma Edge Function com a chave no servidor. Regra: sempre confirmar o código lido antes de abrir; nunca vender automaticamente.
-- **Publicação:** passo a passo em `publicacao.md` (rewrite de SPA já configurado). Falta: manifest/ícone de PWA e backup semanal gratuito do banco (pg_dump agendado).
+- **Publicação:** passo a passo em `publicacao.md` (`wrangler.jsonc`/`vercel.json` já configurados). Falta: manifest/ícone de PWA e backup semanal gratuito do banco (pg_dump agendado).
 - **Feriados** no cálculo do próximo dia útil (hoje só fins de semana).
 - **Custo unitário** opcional na venda avulsa (hoje lucro = valor vendido).
 - **Observações do PDF** configuráveis (hoje fixas em `OBSERVACOES_ORCAMENTO`).
