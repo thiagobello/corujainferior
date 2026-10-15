@@ -10,7 +10,7 @@ import { brlReais } from '@/lib/dinheiro';
 import { exportarPlanilha } from '@/lib/exportar';
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO, useCores } from '@/lib/tema';
-import { ROTULO_FORMA, dataBR } from '@/lib/tipos';
+import { ROTULO_CANAL, ROTULO_FORMA, dataBR } from '@/lib/tipos';
 import { useConsulta } from '@/lib/useConsulta';
 
 type Marca = 'coruja' | 'arquibancada' | 'consignante';
@@ -47,9 +47,11 @@ export default function Painel() {
         { Indicador: 'Atribuído à Coruja Sports', Valor: Number(r.marcas.coruja) },
         { Indicador: 'Atribuído à Arquibancada Inferior', Valor: Number(r.marcas.arquibancada) },
         { Indicador: 'Devido a proprietários (concessão)', Valor: Number(r.marcas.consignantes) },
-        { Indicador: 'Efetivamente recebido no período', Valor: Number(r.recebido_periodo) },
-        { Indicador: 'A receber (total)', Valor: Number(r.a_receber) },
-        { Indicador: 'A repassar à Arquibancada (hoje)', Valor: Number(r.repasse_pendente) },
+        { Indicador: 'Recebido pela Coruja no período', Valor: Number(r.recebido_periodo) },
+        { Indicador: 'A receber pela Coruja (total)', Valor: Number(r.a_receber) },
+        { Indicador: 'Recebido pela Arquibancada no período (site dela)', Valor: Number(r.recebido_arquibancada ?? 0) },
+        { Indicador: 'Saldo de repasse hoje (+ Coruja deve, − Arquibancada deve)', Valor: Number(r.repasse_pendente) },
+        ...(r.por_canal ?? []).map((x: any) => ({ Indicador: `Vendas: ${ROTULO_CANAL[x.canal as keyof typeof ROTULO_CANAL] ?? x.canal}`, Valor: Number(x.bruto), Quantidade: x.vendas })),
         ...r.por_forma.map((f: any) => ({ Indicador: `Vendas em ${ROTULO_FORMA[f.forma as keyof typeof ROTULO_FORMA]}`, Valor: Number(f.bruto), Quantidade: f.vendas })),
         ...r.mais_vendidos.map((m: any, i: number) => ({ Indicador: `Mais vendido #${i + 1}: ${m.descricao}`, Valor: Number(m.bruto), Quantidade: m.quantidade })),
       ];
@@ -60,6 +62,7 @@ export default function Painel() {
   }
 
   const maxForma = r ? Math.max(1, ...r.por_forma.map((f: any) => Number(f.bruto))) : 1;
+  const maxCanal = r ? Math.max(1, ...(r.por_canal ?? []).map((f: any) => Number(f.bruto))) : 1;
 
   return (
     <Tela atualizando={carregando} onAtualizar={recarregar}>
@@ -96,7 +99,7 @@ export default function Painel() {
             <Estatistica rotulo="Resultado" valor={brlReais(r.resultado)} cor={Number(r.resultado) < 0 ? c.perigo : c.primaria} />
           </Linha>
           {marca && (
-            <Aviso tipo="info" texto="Totais só das peças desta marca. Recebimentos são da loja toda." />
+            <Aviso tipo="info" texto="Totais só das peças desta marca. Recebimentos não filtram por marca." />
           )}
 
           <Secao titulo="Divisão do líquido">
@@ -117,8 +120,31 @@ export default function Painel() {
             <Cartao>
               <ParValor rotulo="Recebido no período" valor={brlReais(r.recebido_periodo)} destaque />
               <ParValor rotulo="A receber" valor={brlReais(r.a_receber)} />
+              {(Number(r.recebido_arquibancada) !== 0 || Number(r.a_receber_arquibancada) !== 0) && (
+                <ParValor
+                  rotulo="Com a Arquibancada (site)"
+                  valor={`${brlReais(r.recebido_arquibancada)}${Number(r.a_receber_arquibancada) ? ` · a receber ${brlReais(r.a_receber_arquibancada)}` : ''}`}
+                />
+              )}
               <ParValor rotulo="Pendências" valor={`${r.pagamentos_pendentes} · ${brlReais(r.valor_pendente_manual)}`} />
               <Botao compacto v="fantasma" titulo="Ver a receber ›" onPress={() => router.push('/pagamentos')} />
+            </Cartao>
+          </Secao>
+
+          <Secao titulo="Por canal">
+            <Cartao>
+              {(r.por_canal ?? []).length === 0 && <T v="legenda">Sem vendas no período.</T>}
+              {(r.por_canal ?? []).map((f: any) => (
+                <View key={f.canal} style={{ gap: 4, paddingVertical: 4 }}>
+                  <Linha estilo={{ justifyContent: 'space-between' }}>
+                    <T>{ROTULO_CANAL[f.canal as keyof typeof ROTULO_CANAL] ?? f.canal} · {f.vendas}</T>
+                    <T v="forte">{brlReais(f.bruto)}</T>
+                  </Linha>
+                  <View style={{ height: 6, borderRadius: 3, backgroundColor: c.superficie2 }}>
+                    <View style={{ height: 6, borderRadius: 3, backgroundColor: c.primaria, width: `${(Number(f.bruto) / maxCanal) * 100}%` }} />
+                  </View>
+                </View>
+              ))}
             </Cartao>
           </Secao>
 
@@ -159,8 +185,8 @@ export default function Painel() {
                 <T v="valor" cor={c.info}>{r.emprestimos_ativos}</T>
               </Cartao>
               <Cartao estilo={{ flexGrow: 1, flexBasis: 150 }} onPress={() => router.push('/repasses')}>
-                <T v="legenda">A repassar à Arquibancada</T>
-                <T v="valor" cor={r.repasse_pendente > 0 ? c.alerta : undefined}>{brlReais(r.repasse_pendente)}</T>
+                <T v="legenda">{r.repasse_pendente < 0 ? 'Arquibancada deve à Coruja' : 'A repassar à Arquibancada'}</T>
+                <T v="valor" cor={r.repasse_pendente !== 0 ? c.alerta : undefined}>{brlReais(Math.abs(r.repasse_pendente))}</T>
               </Cartao>
               <Cartao estilo={{ flexGrow: 1, flexBasis: 150 }} onPress={() => router.push('/site')}>
                 <T v="legenda">Remover do site</T>

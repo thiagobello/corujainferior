@@ -2,9 +2,10 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
+import { FotoAmpliavel } from '@/components/foto-ampliavel';
 import { useDialogos } from '@/components/dialogos';
 import {
-  Aviso, Botao, Campo, Cartao, Carregando, ErroCaixa, Etiqueta, Foto, Linha, ParValor, Secao, Selo, Separador, T, Tela,
+  Aviso, Botao, Campo, Cartao, Carregando, ErroCaixa, Etiqueta, Linha, ParValor, Secao, Selo, Separador, T, Tela,
 } from '@/components/ui';
 import { atualizarProduto, encerrarReserva, historicoProduto, obterProduto, reservar } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -90,7 +91,7 @@ export default function DetalheProduto() {
     <Tela atualizando={carregando} onAtualizar={recarregar}>
       <Stack.Screen options={{ title: p.codigo }} />
       <Linha gap={ESPACO.lg} quebra estilo={{ alignItems: 'flex-start' }}>
-        <Foto path={p.foto_path} tamanho={140} raio={12} />
+        <FotoAmpliavel path={p.foto_path} tamanho={140} raio={12} />
         <View style={{ flex: 1, minWidth: 200, gap: ESPACO.xs }}>
           <T v="titulo" estilo={{ fontSize: 20 }}>{p.descricao}</T>
           <Linha quebra>

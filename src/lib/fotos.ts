@@ -1,31 +1,35 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
+import { comprimirFoto } from './comprimir-foto';
 import { BUCKET_FOTOS, supabase } from './supabase';
 
-/** Abre a câmera ou a galeria. Retorna a URI local ou null se cancelado. */
+/**
+ * Abre a câmera ou a galeria e já devolve a foto reduzida (JPEG, lado maior 1280 px),
+ * ou null se cancelado. Comprimir aqui tira o trabalho do toque em "Cadastrar"/"Salvar".
+ */
 export async function escolherFoto(origem: 'camera' | 'galeria'): Promise<string | null> {
-  const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6, allowsEditing: true, aspect: [3, 4] };
+  // quality 1: a única compressão é a de comprimirFoto (evita JPEG regravado duas vezes).
+  // Na web, allowsEditing/aspect são ignorados pelo navegador.
+  const opcoes: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, allowsEditing: true, aspect: [3, 4] };
+  let r: ImagePicker.ImagePickerResult;
   if (origem === 'camera') {
     if (Platform.OS !== 'web') {
       const p = await ImagePicker.requestCameraPermissionsAsync();
       if (!p.granted) throw new Error('Permissão de câmera negada. Libere nas configurações do aparelho.');
     }
-    const r = await ImagePicker.launchCameraAsync(opcoes);
-    return r.canceled ? null : r.assets[0].uri;
+    r = await ImagePicker.launchCameraAsync(opcoes);
+  } else {
+    r = await ImagePicker.launchImageLibraryAsync(opcoes);
   }
-  const r = await ImagePicker.launchImageLibraryAsync(opcoes);
-  return r.canceled ? null : r.assets[0].uri;
+  return r.canceled ? null : comprimirFoto(r.assets[0].uri);
 }
 
-/** Envia a foto ao armazenamento e devolve o caminho salvo no produto. */
+/** Envia a foto (já comprimida por escolherFoto) e devolve o caminho salvo. */
 export async function enviarFoto(uri: string, pasta = ''): Promise<string> {
-  const resp = await fetch(uri);
-  const dados = await resp.arrayBuffer();
-  const tipo = resp.headers.get('content-type')?.startsWith('image/') ? resp.headers.get('content-type')! : 'image/jpeg';
-  const ext = tipo.includes('png') ? 'png' : tipo.includes('webp') ? 'webp' : 'jpg';
-  const caminho = `${pasta ? `${pasta}/` : ''}${new Date().toISOString().slice(0, 7)}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET_FOTOS).upload(caminho, dados, { contentType: tipo, upsert: false });
+  const dados = await (await fetch(uri)).arrayBuffer();
+  const caminho = `${pasta ? `${pasta}/` : ''}${new Date().toISOString().slice(0, 7)}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await supabase.storage.from(BUCKET_FOTOS).upload(caminho, dados, { contentType: 'image/jpeg', upsert: false });
   if (error) throw error;
   return caminho;
 }

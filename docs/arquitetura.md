@@ -8,7 +8,7 @@
 | Navegação | **Expo Router** (rotas em `src/app/`) | `typedRoutes` ligado: rotas novas só tipam depois de rodar `npx expo start` uma vez. |
 | Backend | **Supabase**: Postgres, Auth (e-mail/senha), Storage (bucket `produtos`) | Plano gratuito. Cliente `@supabase/supabase-js`. |
 | Sessão | `expo-sqlite/localStorage` no celular; `window.localStorage` na web | Arquivos `src/lib/armazenamento.ts` / `.web.ts`. |
-| Fotos | `expo-image-picker` (câmera/galeria), `expo-image` (exibição) | Upload em `src/lib/fotos.ts` para o bucket `produtos`. |
+| Fotos | `expo-image-picker` (câmera/galeria), `expo-image-manipulator` (compressão no celular), `expo-image` (exibição) | Toda foto é reduzida ao ser escolhida (lado maior 1280 px, JPEG 0,7; ~200 KB) e enviada por `src/lib/fotos.ts` ao bucket `produtos`. Na web a compressão usa canvas (`comprimir-foto.web.ts`), não o manipulator. |
 | PDF (orçamentos) | Celular: `expo-print` (HTML de `orcamento-html.ts`) + `expo-sharing`. Web: **pdfmake 0.3** gera o arquivo no aparelho (`orcamento-pdfmake.ts`, carregado sob demanda) + Web Share (`navigator.share`) ou download | Na web não usar `window.open`/`print()`: falham no iPhone com o site como atalho em tela cheia. |
 | Exportação XLSX/CSV | SheetJS (`xlsx` 0.20.3 via CDN oficial) | `src/lib/exportar*.ts` (download na web, compartilhar no celular). |
 | IDs | `expo-crypto` (`randomUUID`) | Usado na chave de idempotência das vendas. |
@@ -29,11 +29,13 @@ src/components/           Componentes de interface e formulários (sem rotas)
 src/lib/                  Acesso a dados (api.ts), regras de cálculo, utilitários, tipos
 tests/                    Testes de banco (PGlite) e de cálculo
 assets/images/            Ícones e logo da marca (logo-marca.jpg)
+scripts/backup.sh         Backup local do banco e das fotos (Postgres.app)
+scripts/recomprimir-fotos.sh  Recomprime fotos antigas a partir do backup (simula; --enviar regrava no bucket)
 public/index.html         HTML da web (viewport-fit=cover para a área segura do iPhone em tela cheia)
 wrangler.jsonc            Publicação no Cloudflare Workers (SPA a partir de dist/)
 vercel.json               Publicação na Vercel
 docs/                     Esta documentação
-.claude/agents/           Agente especialista do sistema
+.claude/agents/           Agentes: coruja-especialista (sistema) e coruja-backup (backup)
 ```
 
 Arquivos com sufixo `.web.ts` substituem o equivalente nativo na web (resolução do Metro). Ex.: `exportar.ts` × `exportar.web.ts`, `orcamento-pdf.ts` × `orcamento-pdf.web.ts`, `armazenamento.ts` × `armazenamento.web.ts`.

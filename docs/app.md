@@ -27,17 +27,17 @@
 | `/grupo?g=` | `grupo.tsx` | Produto com vários tamanhos: disponíveis por tamanho e lista de unidades |
 | `/venda/nova` | `venda/nova.tsx` | `VendaForm` multi-itens |
 | `/venda/avulsa` | `venda/avulsa.tsx` | `VendaForm` começando com item sem cadastro |
-| `/venda/[id]` | `venda/[id].tsx` | Itens, divisão, repasse, recebimento (marcar), cancelar (admin) |
+| `/venda/[id]` | `venda/[id].tsx` | Itens, divisão, repasse (no site Arquibancada: "Arquibancada deve à Coruja"), recebimento (marcar; indica conta da Arquibancada), cancelar (admin) |
 | `/vendas` | `vendas.tsx` | Vendas por período, exportar |
-| `/pagamentos` | `pagamentos.tsx` | Título "A receber": pendências do cliente e cartão a cair |
-| `/repasses` | `repasses.tsx` | Pendente por semana, dar baixa, histórico, desfazer, exportar |
+| `/pagamentos` | `pagamentos.tsx` | Título "A receber": pendências do cliente e cartão a cair (da Coruja); seção "Site Arquibancada" à parte (dinheiro na conta dela) |
+| `/repasses` | `repasses.tsx` | Saldo por semana nos dois sentidos (negativo = "Arquibancada deve à Coruja"), itens com etiqueta do canal, dar baixa, histórico, desfazer, exportar |
 | `/reservas` | `reservas.tsx` | Reservas/empréstimos ativos, encerrar |
 | `/site` | `site.tsx` | Vendidos ainda no site: removido/adiar/voltar a lembrar |
-| `/painel` | `painel.tsx` | Painel (`resumo_financeiro` + repasse pendente), exportar |
+| `/painel` | `painel.tsx` | Painel (`resumo_financeiro` + saldo de repasse), vendas por canal, exportar |
 | `/scanner` | `scanner.tsx` | Localizar por código digitado (OCR ainda não conectado) |
 | `/orcamentos/novo`, `/orcamentos/[id]`, `/orcamentos/editar/[id]` | `orcamentos/…` | Criar, ver (status, PDF, histórico) e editar orçamento |
 | `/config/categorias` | `config/categorias.tsx` | Gerenciar categorias (admin) |
-| `/config/taxas` | `config/taxas.tsx` | Percentuais por forma (admin edita) |
+| `/config/taxas` | `config/taxas.tsx` | Três blocos (Loja, Site Coruja, Site Arquibancada), cada um com Pix, Débito, Crédito 1x/2x/3x: percentual e, nos sites, recebimento (Na hora · Próximo dia útil). Admin edita |
 | `/config/consignantes` | `config/consignantes.tsx` | Proprietários de concessão e acordos |
 | `/config/usuarios` | `config/usuarios.tsx` | Papel e acesso (admin) |
 | `/config/orcamentos` | `config/orcamentos.tsx` | Título "Serviços e status": serviços do orçamento (posição, variação, valor) e status (admin) |
@@ -54,8 +54,9 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 | `categoria-select.tsx` | Dropdown de categorias (só nomes; `incluirArquivadas` nos filtros) |
 | `produto-form.tsx` | Cadastro/edição de produto: autocomplete de modelos, vínculo, tamanhos + quantidades, validação de obrigatórios, foto. Exporta `OPCOES_TAMANHO` |
 | `tamanhos-codigos.tsx` | Bloco "Tamanhos e códigos": linha por tamanho (qtd − +, faixa `M1388–1392`), edição de códigos por unidade, conferência no banco. Exposto via `ref.obter()` |
+| `foto-ampliavel.tsx` | `FotoAmpliavel`: miniatura que abre a foto em tela cheia ao tocar (fundo escuro, sem cortes; toque ou X fecha). Usada no detalhe do produto e no grupo |
 | `produto-linha.tsx` | `ProdutoLinha` (unidade) e `GrupoLinha` (grupo com tamanhos) — descrição em destaque |
-| `venda-form.tsx` | Formulário único de venda (produto do estoque e item avulso), prévia de taxa/líquido/divisão, confirmação, idempotência, recentes de avulsos |
+| `venda-form.tsx` | Formulário único de venda (produto do estoque e item avulso), canal (chips Loja · Site Coruja · Site Arquibancada) e, abaixo, forma (Pix…3x) com a taxa da combinação, prévia de taxa/líquido/divisão e efeito no repasse ("A repassar à Arquibancada" / "Abate do repasse"), confirmação, idempotência, recentes de avulsos |
 | `orcamento-form.tsx` | Orçamento com várias camisas (serviços por posição, “a partir de”, personalizados, fotos); `prepararPecas` envia fotos |
 | `status-orcamento.tsx` | `SeloOrcamento` (cor por status) |
 | `periodo.tsx` | `FiltroPeriodo` (hoje, 7 dias, mês, mês passado, ano, tudo, personalizado) |
@@ -68,13 +69,15 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 |---|---|
 | `supabase.ts` | Cliente, `SUPABASE_CONFIGURADO`, `urlFoto(path)`, `mensagemErro(e)` (traduz erros) |
 | `api.ts` | **Toda** a comunicação com o banco (consultas e RPCs). Tipos `GrupoProduto`, `ItemVenda`, `Categoria`, `Servico`, `Orcamento`, `PecaOrcamento`… e helpers `normalizarCodigo`, `nomeServico`, `descricaoServico`, `GRUPOS_SERVICO` |
-| `tipos.ts` | Tipos de domínio, listas (status, tipos, pertence, formas, tamanhos), rótulos, datas (`dataBR`, `hojeISO`) |
-| `dinheiro.ts` | Centavos inteiros: `lerValor` ("189,90"→18990), `brl`, `brlReais`, `calcularTaxa`, `calcularVenda`, `dividirLiquido` (espelham o banco) |
+| `tipos.ts` | Tipos de domínio, listas (status, tipos, pertence, formas, `CANAIS`, tamanhos), rótulos (`ROTULO_FORMA`, `ROTULO_CANAL`…), datas (`dataBR`, `hojeISO`) |
+| `dinheiro.ts` | Centavos inteiros: `lerValor` ("189,90"→18990), `brl`, `brlReais`, `calcularTaxa`, `calcularVenda`, `dividirLiquido`, `efeitoRepasse(div, canal)` (espelham o banco); tipo `Canal` |
 | `auth.tsx` | `AuthProvider`/`useAuth()` → `sessao`, `perfil`, `admin`, `sair`, `recarregarPerfil` |
 | `useConsulta.ts` | Carrega ao focar a tela e quando `deps` mudam; `{dados, erro, carregando, recarregar}` |
 | `usePuxar.ts` | Estado de "puxar para atualizar" para telas sem consulta |
 | `tema.ts` | Cores claro/escuro (`useCores`), `corStatus`, `ESPACO`, `LARGURA_MAX` |
-| `fotos.ts` | `escolherFoto('camera'|'galeria')`, `enviarFoto(uri, pasta)` |
+| `fotos.ts` | `escolherFoto('camera'|'galeria')` (já devolve a foto comprimida), `enviarFoto(uri, pasta)` (sempre `.jpg`) |
+| `comprimir-foto.ts` / `.web.ts` | `comprimirFoto(uri)`: reduz para lado maior 1280 px e regrava em JPEG 0,7 (HEIC sai JPEG). Celular: `expo-image-manipulator`; web: canvas do navegador (o manipulator na web desenha a foto inteira e trava no limite de canvas do Safari) |
+| `foto-medidas.ts` | `LADO_MAXIMO`, `QUALIDADE_JPEG`, `medidasReduzidas()` |
 | `exportar.ts` / `.web.ts` / `exportar-base.ts` | XLSX/CSV: compartilhar no celular, download na web |
 | `orcamento-html.ts` | HTML A4 do orçamento + `OBSERVACOES_ORCAMENTO` + `numeroOrcamento` |
 | `orcamento-pdf.ts` / `.web.ts` | `criarPdfOrcamento` → `ArquivoPdf`; `compartilharPdf`, `baixarPdf`, `podeCompartilhar`. Celular: `expo-print` + compartilhar. Web: pdfmake (import dinâmico, chunk separado) + Web Share/download |
@@ -86,7 +89,7 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 ## Fluxos principais
 
 - **Cadastrar:** categoria → descrição (autocomplete/vínculo) → tamanhos e quantidades (códigos sugeridos, editáveis) → tipo/condição → pertence → valores → foto → site → `criar_produtos(dados, tamanhos[], codigos[])` (um elemento por unidade). Foto nova é enviada antes; vínculo reaproveita `foto_path`.
-- **Vender:** buscar código (`buscarPorCodigo`, aceita `SA1` p/ `SA01`) ou item avulso → valor efetivo → forma → confirmação → `registrar_venda` com chave UUID (mantida em reenvio; nova após sucesso) → `obterVenda` → `verificarAlertasSite()`.
+- **Vender:** buscar código (`buscarPorCodigo`, aceita `SA1` p/ `SA01`) ou item avulso → valor efetivo → canal (Loja/Site Coruja/Site Arquibancada) → forma (taxa da combinação) → confirmação → `registrar_venda` com chave UUID (mantida em reenvio; nova após sucesso) → `obterVenda` → `verificarAlertasSite()`.
 - **Orçamento:** cliente → camisas (nome, fotos, serviços) → `salvar_orcamento` → detalhe → status / Gerar PDF. No celular, Gerar PDF já abre o compartilhar; **na web** gera o arquivo e mostra **Compartilhar** / **Baixar** (o compartilhar do navegador exige um toque direto do usuário, então não pode ser chamado depois da geração assíncrona).
 
 ## Padrões de interface

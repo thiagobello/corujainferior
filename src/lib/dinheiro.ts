@@ -118,3 +118,16 @@ export function dividirLiquido(
     }
   }
 }
+
+/** Onde a venda foi feita / quem recebe o dinheiro. */
+export type Canal = 'loja' | 'site_coruja' | 'site_arquibancada';
+
+/**
+ * Efeito da divisão no repasse — mesma regra da view repasse_pendente.
+ * Positivo: a Coruja deve à Arquibancada (dinheiro entrou na Coruja).
+ * Negativo: a Arquibancada deve à Coruja a parte da Coruja (venda no site da
+ * Arquibancada). A parte do proprietário da concessão fica fora do repasse.
+ */
+export function efeitoRepasse(div: Divisao, canal: Canal): Centavos {
+  return canal === 'site_arquibancada' ? 0 - div.coruja : div.arquibancada; // 0 − x evita −0
+}

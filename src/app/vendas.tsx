@@ -10,7 +10,7 @@ import { brlReais } from '@/lib/dinheiro';
 import { exportarPlanilha } from '@/lib/exportar';
 import { mensagemErro } from '@/lib/supabase';
 import { useCores } from '@/lib/tema';
-import { ROTULO_FORMA, dataBR } from '@/lib/tipos';
+import { ROTULO_CANAL, ROTULO_FORMA, dataBR } from '@/lib/tipos';
 import { useConsulta } from '@/lib/useConsulta';
 
 const nomeItem = (i: any) =>
@@ -29,6 +29,7 @@ export default function Vendas() {
         (dados ?? []).map((v) => ({
           Data: dataBR(v.data_venda),
           Itens: v.itens.map(nomeItem).join(' | '),
+          Canal: ROTULO_CANAL[v.canal as keyof typeof ROTULO_CANAL] ?? 'Loja',
           Forma: ROTULO_FORMA[v.forma as keyof typeof ROTULO_FORMA],
           'Forma original': v.forma_original ?? '',
           'Taxa (%)': Number(v.taxa_percentual),
@@ -74,6 +75,7 @@ export default function Vendas() {
             ))}
           </View>
           <T v="legenda">
+            {v.canal && v.canal !== 'loja' ? `${ROTULO_CANAL[v.canal as keyof typeof ROTULO_CANAL]} · ` : ''}
             {ROTULO_FORMA[v.forma as keyof typeof ROTULO_FORMA]} · líquido {brlReais(v.valor_liquido)}
             {v.cliente ? ` · ${v.cliente}` : ''}
           </T>

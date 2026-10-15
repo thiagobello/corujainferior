@@ -1,6 +1,8 @@
-// Repasse semanal à Arquibancada Inferior. Todo o dinheiro das vendas
-// entra na maquininha da Coruja; a parte da Arquibancada fica pendente
-// até a baixa.
+// Repasse semanal entre as marcas. Vendas da loja e do site da Coruja:
+// a parte da Arquibancada fica pendente (valor positivo). Vendas no site da
+// Arquibancada: o dinheiro está com ela, e a parte da Coruja abate o
+// repasse (valor negativo; a do proprietário fica fora). O saldo da
+// semana pode ficar negativo: aí é a Arquibancada que paga a Coruja.
 
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -14,7 +16,7 @@ import { brl, brlReais, paraCentavos } from '@/lib/dinheiro';
 import { exportarPlanilha } from '@/lib/exportar';
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO, useCores } from '@/lib/tema';
-import { dataBR, hojeISO } from '@/lib/tipos';
+import { ROTULO_CANAL, dataBR, hojeISO } from '@/lib/tipos';
 import { useConsulta } from '@/lib/useConsulta';
 
 const PARTE: Record<string, string> = {
@@ -22,6 +24,13 @@ const PARTE: Record<string, string> = {
   Ambos: '50%',
   Concessão: 'comissão da concessão',
 };
+
+function parte(i: RepassePendente): string {
+  if (i.canal === 'site_arquibancada') return 'parte da Coruja';
+  return PARTE[i.pertence] ?? i.pertence;
+}
+/** Saldo com o sentido: positivo a Coruja paga; negativo a Arquibancada paga. */
+const rotuloSaldo = (total: number) => (total < 0 ? 'Arquibancada deve à Coruja' : 'A repassar à Arquibancada');
 
 interface Semana {
   inicio: string; // segunda-feira
@@ -71,7 +80,7 @@ export default function Repasses() {
     let obs = '';
     let pagoEm = dataBR(hojeISO());
     const ok = await confirmar({
-      titulo: `Dar baixa: ${brl(total)}`,
+      titulo: total < 0 ? `Receber da Arquibancada: ${brl(-total)}` : `Dar baixa: ${brl(total)}`,
       confirmar: 'Confirmar repasse',
       conteudo: (
         <FormBaixa
@@ -127,11 +136,12 @@ export default function Repasses() {
           Produto: i.descricao,
           Tamanho: i.tamanho ?? '',
           Tipo: i.tipo === 'venda' ? 'Venda' : 'Estorno (venda cancelada)',
+          Canal: ROTULO_CANAL[i.canal] ?? i.canal,
           Pertence: i.pertence,
-          Parte: PARTE[i.pertence] ?? '',
+          Parte: parte(i),
           'Valor da venda': Number(i.valor_bruto),
           'Líquido após taxa': Number(i.valor_liquido),
-          'Parte da Arquibancada': Number(i.valor),
+          'Repasse (+ Coruja paga, − Arquibancada paga)': Number(i.valor),
         })),
       );
     } catch (e) {
@@ -146,11 +156,11 @@ export default function Repasses() {
       {dados && (
         <>
           <Cartao>
-            <T v="legenda">A repassar</T>
-            <T v="valor" estilo={{ fontSize: 28 }} cor={totalPendente > 0 ? c.primaria : undefined}>{brl(totalPendente)}</T>
-            <T v="legenda">
-              Líquido das peças da Arquibancada (100%) e das Ambos (50%).
+            <T v="legenda">{rotuloSaldo(totalPendente)}</T>
+            <T v="valor" estilo={{ fontSize: 28 }} cor={totalPendente > 0 ? c.primaria : totalPendente < 0 ? c.alerta : undefined}>
+              {brl(Math.abs(totalPendente))}
             </T>
+            <T v="legenda">Parte da Arquibancada, menos o que ela deve das vendas no site dela.</T>
             <Linha quebra>
               {admin && semanas.length > 1 && (
                 <Botao
@@ -180,10 +190,11 @@ export default function Repasses() {
                           {dataBR(s.inicio)} a {dataBR(s.fim)}
                         </T>
                         <T v="legenda">
-                          {s.itens.length} venda(s){s.inicio === semanaAtual ? ' · semana atual' : ''} · {expandida ? 'ocultar' : 'ver itens'}
+                          {s.itens.length} item(ns){s.inicio === semanaAtual ? ' · semana atual' : ''} · {expandida ? 'ocultar' : 'ver itens'}
                         </T>
+                        {s.total < 0 && <T v="legenda" cor={c.alerta}>{rotuloSaldo(s.total)}</T>}
                       </View>
-                      <T v="valor">{brl(s.total)}</T>
+                      <T v="valor" cor={s.total < 0 ? c.alerta : undefined}>{brl(Math.abs(s.total))}</T>
                     </Linha>
                   </Pressable>
                   {expandida && (
@@ -195,8 +206,15 @@ export default function Repasses() {
                             <View style={{ flex: 1 }}>
                               <T>{[i.descricao, i.tamanho, i.codigo ?? 'sem cadastro'].filter(Boolean).join(' · ')}</T>
                               <T v="legenda">
-                                {dataBR(i.data_ref)} · venda {brlReais(i.valor_bruto)} · líquido {brlReais(i.valor_liquido)} · {PARTE[i.pertence] ?? i.pertence}
+                                {dataBR(i.data_ref)} · venda {brlReais(i.valor_bruto)} · líquido {brlReais(i.valor_liquido)} · {parte(i)}
                               </T>
+                              {i.canal !== 'loja' && (
+                                <Etiqueta
+                                  texto={ROTULO_CANAL[i.canal]}
+                                  cor={i.canal === 'site_arquibancada' ? c.alerta : undefined}
+                                  fundo={i.canal === 'site_arquibancada' ? c.alertaSuave : undefined}
+                                />
+                              )}
                             </View>
                             {i.tipo === 'estorno' ? (
                               <Etiqueta texto={`estorno ${brlReais(i.valor)}`} cor={c.perigo} fundo={c.perigoSuave} />
@@ -211,7 +229,7 @@ export default function Repasses() {
                   {admin && (
                     <Botao
                       compacto
-                      titulo={`Dar baixa ${brl(s.total)}`}
+                      titulo={s.total < 0 ? `Dar baixa · receber ${brl(-s.total)}` : `Dar baixa ${brl(s.total)}`}
                       icone="checkmark"
                       onPress={() => darBaixa(s.inicio, s.fim, s.total, `semana de ${dataBR(s.inicio)} a ${dataBR(s.fim)}`)}
                       carregando={ocupado === s.inicio + s.fim}
@@ -227,8 +245,12 @@ export default function Repasses() {
             {dados.historico.map((r) => (
               <Cartao key={r.id} estilo={{ opacity: r.status === 'desfeito' ? 0.55 : 1 }}>
                 <Linha estilo={{ justifyContent: 'space-between' }}>
-                  <T v="forte">{brlReais(r.valor)}</T>
-                  {r.status === 'desfeito' ? <Etiqueta texto="Desfeito" /> : <T v="legenda">pago em {dataBR(r.pago_em)}</T>}
+                  <T v="forte">{brlReais(Math.abs(Number(r.valor)))}</T>
+                  {r.status === 'desfeito' ? (
+                    <Etiqueta texto="Desfeito" />
+                  ) : (
+                    <T v="legenda">{Number(r.valor) < 0 ? 'Arquibancada pagou' : 'pago'} em {dataBR(r.pago_em)}</T>
+                  )}
                 </Linha>
                 <ParValor
                   rotulo="Período"

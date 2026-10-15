@@ -33,8 +33,8 @@ async function produto(dados, tamanhos = ['M']) {
 }
 async function vender(itens, forma = 'pix', extra = {}) {
   const chave = extra.chave ?? randomUUID();
-  const r = await um(`select registrar_venda($1, $2, $3, $4, null, null, $5) as id`,
-    [chave, JSON.stringify(itens), forma, extra.data ?? null, extra.pendente ?? false]);
+  const r = await um(`select registrar_venda($1, $2, $3, $4, null, null, $5, 'venda', $6) as id`,
+    [chave, JSON.stringify(itens), forma, extra.data ?? null, extra.pendente ?? false, extra.canal ?? 'loja']);
   return r.id;
 }
 const lanc = async (venda) =>
@@ -583,4 +583,168 @@ test('autocomplete da descrição: modelos parecidos e quantidade por tamanho', 
   assert.equal((await busca('inexistente xyz')).length, 0);
   assert.equal((await busca('   ')).length, 0);
   assert.equal((await busca('100%')).length, 0); // curinga escapado
+});
+
+test('venda pelo site: taxa própria, canal, recebimento e repasse nos dois sentidos', async () => {
+  const pend = async () => num((await um(`select coalesce(sum(valor), 0) v from repasse_pendente`)).v);
+  if ((await um(`select count(*)::int n from repasse_pendente`)).n) await db.query(`select registrar_repasse('2000-01-01', '2100-01-01')`);
+  assert.equal(await pend(), 0);
+
+  await db.query(`select atualizar_taxa('pix', 4.99, 'site_coruja')`);
+  await db.query(`select atualizar_taxa('pix', 5, 'site_arquibancada')`);
+  // Recebimento do site: só admin muda, e só nos canais dos sites.
+  await como(VEND);
+  await assert.rejects(db.query(`select definir_liquidacao_taxa('site_coruja', 'pix', 'imediata')`), /administradores/);
+  await como(ADMIN);
+  await assert.rejects(db.query(`select definir_liquidacao_taxa('loja', 'pix', 'proximo_dia_util')`), /site/);
+  await assert.rejects(db.query(`select definir_liquidacao_taxa('site_coruja', 'pix', 'mensal')`), /inválido/);
+  await db.query(`select definir_liquidacao_taxa('site_coruja', 'pix', 'imediata')`);
+  const SA = { canal: 'site_arquibancada' };
+
+  // Semana de 07/09/2026 (segunda) a 13/09/2026.
+  const [a] = await produto({ pertence: 'Ambos' });
+  const [b] = await produto({ pertence: 'Coruja Sports' });
+  const [ai] = await produto({ prefixo: 'AI', pertence: 'Arquibancada Inferior' });
+  const [d] = await produto({ pertence: 'Ambos' });
+  const consignante = (marca) => um(`insert into consignantes (nome, tipo_acordo, valor_acordo, marca_restante)
+                         values ('Site ' || $1, 'percentual', 70, $1) returning id`, [marca]);
+  const [e] = await produto({ pertence: 'Concessão', consignante_id: (await consignante('ambos')).id });
+  const [ec] = await produto({ pertence: 'Concessão', consignante_id: (await consignante('coruja')).id });
+  const [ea] = await produto({ pertence: 'Concessão', consignante_id: (await consignante('arquibancada')).id });
+  const [f] = await produto({ pertence: 'Coruja Sports' });
+  const [g] = await produto({ pertence: 'Coruja Sports' });
+
+  // Ambos no site da Arquibancada: taxa do site (5%) gravada; split normal;
+  // a parte da Coruja abate o repasse.
+  const va = await vender([{ produto_id: a.id, valor_bruto: 100 }], 'pix', { ...SA, data: '2026-09-07' });
+  const venda = await um(`select forma, canal, taxa_percentual, taxa_valor from vendas where id = $1`, [va]);
+  assert.deepEqual([venda.forma, venda.canal, num(venda.taxa_percentual), num(venda.taxa_valor)], ['pix', 'site_arquibancada', 5, 5]);
+  assert.equal(num((await um(`select taxa_percentual from venda_itens where venda_id = $1`, [va])).taxa_percentual), 5);
+  assert.deepEqual(await lanc(va), { coruja: 47.5, arquibancada: 47.5 });
+  const ra = (await db.query(`select beneficiario, valor from repasse_pendente where venda_id = $1`, [va])).rows;
+  assert.deepEqual(ra.map((r) => [r.beneficiario, num(r.valor)]), [['coruja', -47.5]]);
+  // O dinheiro entrou na conta da Arquibancada (próximo dia útil, padrão do site).
+  const pa = await um(`select recebedor, canal, vencimento::text v from pagamentos_situacao where venda_id = $1`, [va]);
+  assert.deepEqual([pa.recebedor, pa.canal, pa.v], ['arquibancada', 'site_arquibancada', '2026-09-08']);
+
+  // 100% Coruja no site da Arquibancada: todo o líquido abate o repasse.
+  const vb = await vender([{ produto_id: b.id, valor_bruto: 60 }], 'pix', { ...SA, data: '2026-09-08' });
+  assert.equal(num((await um(`select sum(valor) v from repasse_pendente where venda_id = $1`, [vb])).v), -57);
+
+  // 100% Arquibancada no site dela: não gera repasse.
+  const vc = await vender([{ produto_id: ai.id, valor_bruto: 80 }], 'pix', { ...SA, data: '2026-09-09' });
+  assert.deepEqual(await lanc(vc), { arquibancada: 76 });
+  assert.equal(num((await um(`select count(*) n from repasse_pendente where venda_id = $1`, [vc])).n), 0);
+
+  // Site da Coruja: igual à loja (parte da Arquibancada a repassar), com a taxa do site.
+  const vd = await vender([{ produto_id: d.id, valor_bruto: 100 }], 'pix', { canal: 'site_coruja', data: '2026-09-09' });
+  assert.equal((await um(`select canal from vendas where id = $1`, [vd])).canal, 'site_coruja');
+  assert.deepEqual(await lanc(vd), { coruja: 47.51, arquibancada: 47.5 }); // líquido 95,01
+  assert.equal(num((await um(`select sum(valor) v from repasse_pendente where venda_id = $1`, [vd])).v), 47.5);
+  const pd = await um(`select recebedor, status from pagamentos_situacao where venda_id = $1`, [vd]);
+  assert.deepEqual([pd.recebedor, pd.status], ['coruja', 'recebido']); // site Coruja configurado "na hora"
+
+  // Concessão no site da Arquibancada: só a comissão da Coruja abate o
+  // repasse; o valor do proprietário fica fora do acerto entre as marcas.
+  const repasseDa = async (venda) => (await db.query(`select beneficiario, valor from repasse_pendente where venda_id = $1`, [venda])).rows
+    .map((r) => [r.beneficiario, num(r.valor)]);
+  const ve = await vender([{ produto_id: e.id, valor_bruto: 100 }], 'pix', { ...SA, data: '2026-09-10' });
+  assert.deepEqual(await lanc(ve), { consignante: 66.5, coruja: 14.25, arquibancada: 14.25 });
+  assert.deepEqual(await repasseDa(ve), [['coruja', -14.25]]); // comissão Ambos: metade da Coruja
+  const vec = await vender([{ produto_id: ec.id, valor_bruto: 100 }], 'pix', { ...SA, data: '2026-09-10' });
+  assert.deepEqual(await lanc(vec), { consignante: 66.5, coruja: 28.5 });
+  assert.deepEqual(await repasseDa(vec), [['coruja', -28.5]]); // comissão toda da Coruja
+  const vea = await vender([{ produto_id: ea.id, valor_bruto: 100 }], 'pix', { ...SA, data: '2026-09-10' });
+  assert.deepEqual(await lanc(vea), { consignante: 66.5, arquibancada: 28.5 });
+  assert.deepEqual(await repasseDa(vea), []); // comissão da Arquibancada: dinheiro já está com ela
+
+  // Venda na loja na mesma semana, para o painel.
+  await vender([{ produto_id: g.id, valor_bruto: 50 }], 'pix', { data: '2026-09-10' });
+
+  // Cancelada antes do repasse: simplesmente sai da lista.
+  const vf = await vender([{ produto_id: f.id, valor_bruto: 20 }], 'pix', { ...SA, data: '2026-09-11' });
+  assert.equal(await pend(), -118.75);
+  await db.query(`select cancelar_venda($1, 'teste')`, [vf]);
+  // Saldo negativo: a Arquibancada deve à Coruja.
+  assert.equal(await pend(), -99.75); // −47,50 − 57 + 47,50 − 14,25 − 28,50
+
+  // Painel: canais somam o faturamento, sem duplicar; recebimentos separados.
+  const r = (await um(`select resumo_financeiro('2026-09-07', '2026-09-13') r`)).r;
+  assert.equal(num(r.bruto), 690);
+  const canal = Object.fromEntries(r.por_canal.map((x) => [x.canal, num(x.bruto)]));
+  assert.deepEqual(canal, { loja: 50, site_coruja: 100, site_arquibancada: 540 });
+  assert.deepEqual(r.por_canal.map((x) => x.canal), ['loja', 'site_coruja', 'site_arquibancada']);
+  assert.equal(num(r.recebido_periodo), 145.01); // 95,01 (site Coruja) + 50 (loja)
+  assert.equal(num(r.recebido_arquibancada), 513); // 95 + 57 + 76 + 3 × 95
+
+  // Baixa com total negativo: a Arquibancada pagou a Coruja.
+  const r1 = await um(`select registrar_repasse('2026-09-07', '2026-09-13', '2026-09-14') id`);
+  assert.equal(num((await um(`select valor from repasses where id = $1`, [r1.id])).valor), -99.75);
+  assert.equal(await pend(), 0);
+
+  // Cancelada depois do repasse: estorno no sentido inverso (a Coruja devolve).
+  await db.query(`select cancelar_venda($1, 'devolução')`, [vb]);
+  const est = await um(`select tipo, valor from repasse_pendente where venda_id = $1`, [vb]);
+  assert.deepEqual([est.tipo, num(est.valor)], ['estorno', 57]);
+  assert.equal(await pend(), 57);
+  const hoje = (await um(`select (now() at time zone 'America/Sao_Paulo')::date d`)).d;
+  const r2 = await um(`select registrar_repasse('2000-01-01', $1) id`, [hoje]);
+  assert.equal(num((await um(`select valor from repasses where id = $1`, [r2.id])).valor), 57);
+  await db.query(`select definir_liquidacao_taxa('site_coruja', 'pix', 'proximo_dia_util')`);
+});
+
+test('taxa por canal + forma: 9 casos de divisão/repasse, venda antiga intacta, só admin altera', async () => {
+  const pend = async (venda) => num((await um(`select coalesce(sum(valor), 0) v from repasse_pendente where venda_id = $1`, [venda])).v);
+  // Crédito 3x com taxa diferente em cada canal (loja já está em 5,99%).
+  await db.query(`select atualizar_taxa('credito_3x', 6.5, 'site_coruja')`);
+  await db.query(`select atualizar_taxa('credito_3x', 7, 'site_arquibancada')`);
+  await como(VEND);
+  await assert.rejects(db.query(`select atualizar_taxa('credito_3x', 1, 'site_coruja')`), /administradores/);
+  await como(ADMIN);
+  await assert.rejects(db.query(`select atualizar_taxa('credito_3x', 1, 'site_x')`), /não encontrada/);
+  const hist = await um(`select canal, percentual_novo from taxas_historico where forma = 'credito_3x' order by id desc limit 1`);
+  assert.deepEqual([hist.canal, num(hist.percentual_novo)], ['site_arquibancada', 7]);
+
+  // [canal, pertence, lançamentos esperados, repasse esperado] — bruto 100 em crédito 3x.
+  const casos = [
+    ['loja', 'Coruja Sports', { coruja: 94.01 }, 0],
+    ['loja', 'Arquibancada Inferior', { arquibancada: 94.01 }, 94.01],
+    ['loja', 'Ambos', { coruja: 47.01, arquibancada: 47 }, 47],
+    ['site_coruja', 'Coruja Sports', { coruja: 93.5 }, 0],
+    ['site_coruja', 'Arquibancada Inferior', { arquibancada: 93.5 }, 93.5],
+    ['site_coruja', 'Ambos', { coruja: 46.75, arquibancada: 46.75 }, 46.75],
+    ['site_arquibancada', 'Coruja Sports', { coruja: 93 }, -93],
+    ['site_arquibancada', 'Arquibancada Inferior', { arquibancada: 93 }, 0],
+    ['site_arquibancada', 'Ambos', { coruja: 46.5, arquibancada: 46.5 }, -46.5],
+  ];
+  const pct = { loja: 5.99, site_coruja: 6.5, site_arquibancada: 7 };
+  const vendas = {};
+  for (const [canal, pertence, lancs, repasse] of casos) {
+    const [p] = await produto({ pertence, prefixo: pertence === 'Arquibancada Inferior' ? 'AI' : 'M' });
+    const v = await vender([{ produto_id: p.id, valor_bruto: 100 }], 'credito_3x', { canal, data: '2026-08-04' });
+    vendas[canal] = v;
+    const vv = await um(`select v.forma, v.canal, v.taxa_percentual, i.taxa_percentual ip from vendas v join venda_itens i on i.venda_id = v.id where v.id = $1`, [v]);
+    assert.deepEqual([vv.forma, vv.canal, num(vv.taxa_percentual), num(vv.ip)], ['credito_3x', canal, pct[canal], pct[canal]], `${canal}/${pertence}`);
+    assert.deepEqual(await lanc(v), lancs, `${canal}/${pertence}`);
+    assert.equal(await pend(v), repasse, `${canal}/${pertence}`);
+  }
+
+  // Alterar a taxa depois não muda a venda antiga; a nova usa a taxa nova.
+  await db.query(`select atualizar_taxa('credito_3x', 8, 'site_arquibancada')`);
+  assert.equal(num((await um(`select taxa_percentual from vendas where id = $1`, [vendas.site_arquibancada])).taxa_percentual), 7);
+  const [p] = await produto({});
+  const nova = await vender([{ produto_id: p.id, valor_bruto: 100 }], 'credito_3x', { canal: 'site_arquibancada', data: '2026-08-04' });
+  assert.equal(num((await um(`select taxa_valor from vendas where id = $1`, [nova])).taxa_valor), 8);
+
+  // Canal e forma legados/ inválidos são recusados.
+  const [q] = await produto({});
+  await assert.rejects(vender([{ produto_id: q.id, valor_bruto: 10 }], 'site_coruja'), /forma de pagamento/);
+  await assert.rejects(vender([{ produto_id: q.id, valor_bruto: 10 }], 'pix', { canal: 'feira' }), /Canal inválido/);
+
+  // Painel: por canal e por forma somam o mesmo faturamento, sem duplicar.
+  const r = (await um(`select resumo_financeiro('2026-08-04', '2026-08-04') r`)).r;
+  const soma = (l) => Math.round(l.reduce((t, x) => t + num(x.bruto), 0) * 100);
+  assert.equal(soma(r.por_canal), Math.round(num(r.bruto) * 100));
+  assert.equal(soma(r.por_forma), Math.round(num(r.bruto) * 100));
+  assert.deepEqual(r.por_forma.map((x) => x.forma), ['credito_3x']);
 });

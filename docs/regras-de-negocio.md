@@ -50,11 +50,15 @@ Onde a regra é garantida está indicado entre colchetes. "[banco]" significa qu
 - **Venda avulsa (sem cadastro, ex.: isqueiros):** item com descrição, quantidade, valor (unitário na tela; total gravado) e pertence. Segue as mesmas regras de taxa, divisão e repasse; **não mexe no estoque**. Pode ser misturada com produtos na mesma venda. Os últimos itens avulsos ficam como atalho **no aparelho** (localStorage).
 - **Cancelamento (admin, com motivo):** produtos voltam a Disponível, itens/lançamentos ficam inativos, recebimentos cancelados, alertas do site cancelados; o histórico é mantido. Se a parte da Arquibancada já tinha sido repassada, vira **estorno** no próximo repasse.
 - Data da venda é editável (padrão: hoje no fuso de São Paulo).
+- **Canal da venda:** **Loja** (padrão), **Site Coruja** ou **Site Arquibancada**, escolhido em toda tela de venda (Baixa Rápida, Nova venda, Venda avulsa). Canal e forma de pagamento são escolhidos **separadamente**; a taxa vem da combinação canal + forma (§6). O canal é gravado na venda (`vendas.canal`, parâmetro `p_canal` de `registrar_venda`). [banco]
+  - **Site Coruja:** o dinheiro entra na Coruja; divisão e repasse iguais aos da loja.
+  - **Site Arquibancada:** o dinheiro entra na conta da Arquibancada. A divisão do líquido é a mesma (§8), mas o sentido do repasse se inverte (§9).
 - Ao vender peça marcada "no site", nasce um **alerta de remoção do site**.
 
 ## 6. Taxas de pagamento
 
-- Formas: **Pix, Débito, Crédito 1x, 2x, 3x** (configuráveis em Mais › Taxas; começam em 0%). `outro` existe só para dados legados.
+- Formas: **Pix, Débito, Crédito 1x, 2x, 3x**, em cada canal (**Loja**, **Site Coruja**, **Site Arquibancada**). **A taxa é por canal + forma** (ex.: Site Arquibancada · Crédito 3x tem percentual próprio). Configuráveis em Mais › Taxas (três blocos) e começam em 0%. `outro` e as formas `site_coruja`/`site_arquibancada` (taxa única por site, primeira versão) existem só como legado e são recusadas em vendas novas. [banco]
+- A loja/marca absorve a taxa do site da mesma forma que a da maquininha (mesmas fórmulas abaixo); divisão e repasse são sempre sobre o líquido após a taxa da combinação.
 - **A loja absorve a taxa:** cliente paga o valor efetivo.
   - `taxa = round(bruto × percentual / 100, 2)` (meio para longe do zero)
   - `líquido = bruto − taxa`
@@ -67,6 +71,8 @@ Onde a regra é garantida está indicado entre colchetes. "[banco]" significa qu
 
 - **Pix:** recebido na hora (data da venda).
 - **Débito e crédito (1x/2x/3x):** **um único recebimento no próximo dia útil** (seg→ter … sex/sáb/dom→segunda), contado como recebido nessa data (liquidação automática). **Não há parcelas futuras.** Feriados não são considerados.
+- **Sites:** cada forma de cada site começa com **um recebimento no próximo dia útil** (mais conservador). O admin muda por linha para **na hora** em Mais › Taxas (coluna `taxas.liquidacao`, função `definir_liquidacao_taxa`; só os canais dos sites aceitam essa troca — a loja segue Pix na hora e cartão no próximo dia útil). [banco]
+- **Quem recebe:** loja e site Coruja → Coruja; site Arquibancada → **Arquibancada** (`pagamentos_situacao.recebedor`). O que entra na conta da Arquibancada **não conta** no recebido/a receber da Coruja: aparece separado no Painel ("Com a Arquibancada (site)") e em Mais › A receber (seção "Site Arquibancada").
 - **Pagamento pendente** (cliente paga depois): só conta como recebido quando alguém marca em Mais › A receber.
 - O painel distingue **vendido** de **efetivamente recebido**.
 
@@ -82,13 +88,20 @@ Sobre o **líquido** (após a taxa), por item:
 | Concessão | Valor devido ao proprietário pelo acordo (**% do líquido** ou **valor fixo** por peça; acordo do consignante ou acordo próprio da peça). O restante vai para a marca configurada no consignante (Coruja, Arquibancada ou Ambos 50/50). |
 
 - Uma venda gera **um** registro de venda/item e N **lançamentos** (`lancamentos`). Relatórios somam faturamento pelos itens, nunca pelos lançamentos (sem duplicar).
+- A divisão **não muda com o canal**: o lançamento diz de quem é o valor; o canal diz quem está com o dinheiro (e portanto o sentido do repasse).
 - Custo, recebimento líquido e divisão ficam em campos separados.
 
 ## 9. Repasses à Arquibancada
 
-- **Todo o dinheiro entra na maquininha da Coruja.** Tudo o que é atribuído à Arquibancada fica **pendente de repasse**: 100% das peças Arquibancada, 50% das peças Ambos e a comissão de concessão destinada a ela (inclui itens avulsos).
-- Tela Mais › Repasses: pendências **agrupadas por semana (segunda a domingo)**; admin dá baixa por semana ou "em tudo", com data do pagamento e observação. O repasse grava o total e vincula os lançamentos.
-- Venda cancelada **depois** do repasse vira **estorno negativo** no repasse seguinte. Venda cancelada **antes** simplesmente sai da lista.
+- **Loja e site Coruja (dinheiro com a Coruja):** tudo o que é atribuído à Arquibancada fica **pendente de repasse** (valor **positivo**): 100% das peças Arquibancada, 50% das peças Ambos e a comissão de concessão destinada a ela (inclui itens avulsos).
+- **Site Arquibancada (dinheiro com a Arquibancada):** a **parte da Coruja** vira valor que a Arquibancada deve à Coruja e **abate o repasse** (valor **negativo**):
+  - **Ambos:** split normal (50/50 do líquido, centavo ímpar para a Coruja); a parte da Coruja abate o repasse.
+  - **100% Coruja:** todo o líquido abate o repasse.
+  - **100% Arquibancada:** não gera repasse.
+  - **Concessão:** só a comissão da Coruja abate o repasse (toda a comissão se `marca_restante` = coruja; a metade da Coruja se = ambos). A comissão da Arquibancada não gera repasse (o dinheiro já está com ela). **O valor do proprietário fica fora do acerto entre as marcas**: ele recebe por conta própria.
+  - Itens avulsos seguem a mesma regra pelo "pertence" do item.
+- Tela Mais › Repasses: pendências **agrupadas por semana (segunda a domingo)**, com o **saldo** (Coruja deve − Arquibancada deve). Itens do site aparecem com a etiqueta do canal ("Site Arquibancada" / "Site Coruja") e a parte ("parte da Coruja"). Saldo negativo aparece como **"Arquibancada deve à Coruja"**. Admin dá baixa por semana ou "em tudo", com data e observação; o repasse grava o total com sinal (negativo = a Arquibancada pagou a Coruja) e vincula os lançamentos. [banco: view `repasse_pendente`]
+- Venda cancelada **depois** do repasse vira **estorno com o sinal invertido** no repasse seguinte (loja/site Coruja: negativo; site Arquibancada: positivo, a Coruja devolve). Venda cancelada **antes** simplesmente sai da lista.
 - Desfazer repasse (admin) devolve os valores para pendente; é recusado se algum valor dele já foi estornado em repasse posterior (desfaça o posterior antes).
 
 ## 10. Catálogo do site
@@ -115,7 +128,7 @@ Sobre o **líquido** (após a taxa), por item:
 
 ## 12. Painel financeiro (Mais › Painel)
 
-Filtro por período e marca: quantidade de vendas e itens, faturamento bruto (com descontos e quanto veio de itens sem cadastro), taxas, líquido, custo dos vendidos (aviso de itens sem custo), lucro bruto, resultado após taxas, divisão por marca, vendido × recebido, a receber, pendências manuais, vendas por forma de pagamento, mais vendidos (soma quantidades), reservas/empréstimos ativos, alertas do site e total a repassar à Arquibancada. Com filtro de marca, os totais consideram só itens que geraram valor para a marca; recebimentos são sempre da loja inteira.
+Filtro por período e marca: quantidade de vendas e itens, faturamento bruto (com descontos e quanto veio de itens sem cadastro), taxas, líquido, custo dos vendidos (aviso de itens sem custo), lucro bruto, resultado após taxas, divisão por marca, vendido × recebido, a receber, pendências manuais, **vendas por canal** (Loja × Site Coruja × Site Arquibancada; a soma dos canais é o faturamento, sem duplicar), vendas por forma de pagamento, mais vendidos (soma quantidades), reservas/empréstimos ativos, alertas do site e saldo de repasse ("A repassar à Arquibancada" ou "Arquibancada deve à Coruja"). Com filtro de marca, os totais consideram só itens que geraram valor para a marca; recebimentos não filtram por marca. **Recebido/a receber são da Coruja**; o que entrou na conta da Arquibancada (site dela) aparece à parte.
 
 ## 13. Exportações
 

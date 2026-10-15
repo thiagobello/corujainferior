@@ -27,8 +27,12 @@ export default function Pagamentos() {
     }
   }
 
-  const manuais = (dados ?? []).filter((p) => p.liquidacao === 'manual');
-  const cartao = (dados ?? []).filter((p) => p.liquidacao === 'automatica');
+  // Venda no site da Arquibancada cai na conta dela: fica separada para não
+  // somar no que a Coruja tem a receber.
+  const daCoruja = (dados ?? []).filter((p) => p.recebedor !== 'arquibancada');
+  const daArquibancada = (dados ?? []).filter((p) => p.recebedor === 'arquibancada');
+  const manuais = daCoruja.filter((p) => p.liquidacao === 'manual');
+  const cartao = daCoruja.filter((p) => p.liquidacao === 'automatica');
   const soma = (l: any[]) => l.reduce((s, p) => s + Number(p.valor_liquido), 0);
 
   return (
@@ -65,6 +69,25 @@ export default function Pagamentos() {
           <ParValor rotulo={`Cai em ${dataBR(p.vencimento)} · venda de ${dataBR(p.data_venda)}`} valor={brlReais(p.valor_liquido)} />
         </Cartao>
       ))}
+      {daArquibancada.length > 0 && (
+        <>
+          <T v="secao">Site Arquibancada · {brlReais(soma(daArquibancada))}</T>
+          {daArquibancada.map((p) => (
+            <Cartao key={p.id}>
+              <ParValor
+                rotulo={`${p.liquidacao === 'manual' ? 'Pendente' : `Cai em ${dataBR(p.vencimento)}`} · venda de ${dataBR(p.data_venda)}`}
+                valor={brlReais(p.valor_liquido)}
+              />
+              <Linha>
+                {p.liquidacao === 'manual' && (
+                  <Botao compacto titulo="Marcar recebido" icone="checkmark" onPress={() => receber(p.id)} carregando={ocupado === p.id} />
+                )}
+                <Botao compacto v="fantasma" titulo="Ver venda" onPress={() => router.push(`/venda/${p.venda_id}`)} />
+              </Linha>
+            </Cartao>
+          ))}
+        </>
+      )}
     </Tela>
   );
 }

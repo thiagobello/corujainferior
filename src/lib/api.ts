@@ -1,7 +1,7 @@
 // Acesso a dados. Toda regra de negócio crítica (venda, reserva, códigos)
 // roda no banco via RPC; aqui ficam consultas e chamadas finas.
 import { supabase } from './supabase';
-import type { Consignante, FormaPagamento, Movimentacao, Perfil, Produto, Status, Taxa } from './tipos';
+import type { Canal, Consignante, FormaPagamento, Movimentacao, Perfil, Produto, Status, Taxa } from './tipos';
 
 function ok<T>(r: { data: T | null; error: unknown }): T {
   if (r.error) throw r.error;
@@ -184,6 +184,7 @@ export async function registrarVenda(p: {
   observacoes: string;
   pendente: boolean;
   origem: 'venda' | 'baixa_rapida' | 'avulsa';
+  canal: Canal;
 }): Promise<string> {
   return ok(await supabase.rpc('registrar_venda', {
     p_chave: p.chave,
@@ -194,6 +195,7 @@ export async function registrarVenda(p: {
     p_observacoes: p.observacoes,
     p_pagamento_pendente: p.pendente,
     p_origem: p.origem,
+    p_canal: p.canal,
   })) as string;
 }
 
@@ -247,8 +249,12 @@ export async function resolverAlerta(id: string, acao: 'removido' | 'adiar' | 'p
 export async function listarTaxas(): Promise<Taxa[]> {
   return (ok(await supabase.from('taxas').select('*').order('ordem')) as Taxa[]).map((t) => ({ ...t, percentual: Number(t.percentual) }));
 }
-export async function atualizarTaxa(forma: FormaPagamento, percentual: number) {
-  ok(await supabase.rpc('atualizar_taxa', { p_forma: forma, p_percentual: percentual }));
+export async function atualizarTaxa(canal: Canal, forma: FormaPagamento, percentual: number) {
+  ok(await supabase.rpc('atualizar_taxa', { p_canal: canal, p_forma: forma, p_percentual: percentual }));
+}
+/** Recebimento das vendas pelo site (só canais dos sites). */
+export async function definirLiquidacaoTaxa(canal: Canal, forma: FormaPagamento, liquidacao: 'imediata' | 'proximo_dia_util') {
+  ok(await supabase.rpc('definir_liquidacao_taxa', { p_canal: canal, p_forma: forma, p_liquidacao: liquidacao }));
 }
 export async function listarConsignantes(): Promise<Consignante[]> {
   return ok(await supabase.from('consignantes').select('*').order('nome')) as Consignante[];
@@ -303,8 +309,12 @@ export interface RepassePendente {
   valor_liquido: number;
   tipo: 'venda' | 'estorno';
   data_ref: string;
+  /** > 0: a Coruja deve à Arquibancada; < 0: a Arquibancada deve à Coruja (site dela). */
   valor: number;
   pertence: 'Coruja Sports' | 'Arquibancada Inferior' | 'Concessão' | 'Ambos';
+  canal: Canal;
+  /** De quem é a parte: arquibancada (loja/site Coruja) ou coruja (site Arquibancada). */
+  beneficiario: 'coruja' | 'arquibancada' | 'consignante';
 }
 export async function repassesPendentes(): Promise<RepassePendente[]> {
   return ok(await supabase.from('repasse_pendente').select('*').order('data_ref', { ascending: false })) as RepassePendente[];

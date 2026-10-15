@@ -42,7 +42,7 @@ export default function Mais() {
         <Item icone="cart-outline" titulo="Nova venda" desc="Vários itens" href="/venda/nova" />
         <Item icone="receipt-outline" titulo="Vendas" desc="Histórico e cancelamento" href="/vendas" />
         <Item icone="wallet-outline" titulo="A receber" desc="Pendências e cartão a cair" href="/pagamentos" />
-        <Item icone="swap-horizontal-outline" titulo="Repasses" desc="A pagar à Arquibancada" href="/repasses" />
+        <Item icone="swap-horizontal-outline" titulo="Repasses" desc="Acerto com a Arquibancada" href="/repasses" />
         <Item icone="bookmark-outline" titulo="Reservas" desc="Reservas e empréstimos" href="/reservas" />
         <Item icone="globe-outline" titulo="Remover do site" desc="Vendidos ainda no site" href="/site" />
       </Secao>

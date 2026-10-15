@@ -2,7 +2,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { View } from 'react-native';
 
-import { Cartao, Carregando, ErroCaixa, Etiqueta, Foto, Linha, Secao, Selo, T, Tela, Vazio } from '@/components/ui';
+import { FotoAmpliavel } from '@/components/foto-ampliavel';
+import { Cartao, Carregando, ErroCaixa, Etiqueta, Linha, Secao, Selo, T, Tela, Vazio } from '@/components/ui';
 import { unidadesDoGrupo } from '@/lib/api';
 import { brlReais } from '@/lib/dinheiro';
 import { ESPACO, useCores } from '@/lib/tema';
@@ -43,7 +44,7 @@ export default function Grupo() {
     <Tela atualizando={carregando} onAtualizar={recarregar}>
       <Stack.Screen options={{ title: unidades[0].descricao }} />
       <Linha gap={ESPACO.lg} estilo={{ alignItems: 'flex-start' }}>
-        <Foto path={foto} tamanho={110} raio={12} />
+        <FotoAmpliavel path={foto} tamanho={110} raio={12} />
         <View style={{ flex: 1, gap: 4 }}>
           <T v="titulo" estilo={{ fontSize: 20 }}>{unidades[0].descricao}</T>
           <T v="valor">{preco}</T>

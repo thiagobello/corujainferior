@@ -1,8 +1,14 @@
+import type { Canal } from './dinheiro';
+
 export type Status = 'Disponível' | 'Vendida' | 'Reservada' | 'Emprestada';
 export type Tipo = 'Réplica' | 'Original' | 'Própria';
 export type Condicao = 'Nova' | 'Usada';
 export type Pertence = 'Coruja Sports' | 'Arquibancada Inferior' | 'Concessão' | 'Ambos';
-export type FormaPagamento = 'pix' | 'debito' | 'credito_1x' | 'credito_2x' | 'credito_3x' | 'outro';
+export type FormaPagamento =
+  | 'pix' | 'debito' | 'credito_1x' | 'credito_2x' | 'credito_3x'
+  | 'site_coruja' | 'site_arquibancada' // legado (taxa única por site, migration 15); hoje o site é o canal
+  | 'outro';
+export type { Canal };
 export type Papel = 'admin' | 'vendedor';
 
 export const STATUS: Status[] = ['Disponível', 'Vendida', 'Reservada', 'Emprestada'];
@@ -17,7 +23,17 @@ export const ROTULO_FORMA: Record<FormaPagamento, string> = {
   credito_1x: 'Crédito 1x',
   credito_2x: 'Crédito 2x',
   credito_3x: 'Crédito 3x',
+  site_coruja: 'Site Coruja',
+  site_arquibancada: 'Site Arquibancada',
   outro: 'Outro',
+};
+
+/** Canal da venda. A taxa vem da combinação canal + forma. */
+export const CANAIS = ['loja', 'site_coruja', 'site_arquibancada'] as const;
+export const ROTULO_CANAL: Record<(typeof CANAIS)[number], string> = {
+  loja: 'Loja',
+  site_coruja: 'Site Coruja',
+  site_arquibancada: 'Site Arquibancada',
 };
 
 export const TAMANHOS_ADULTO = ['PP', 'P', 'M', 'G', 'GG', '2GG', '3GG', '4GG'];
@@ -66,6 +82,7 @@ export interface Produto {
 }
 
 export interface Taxa {
+  canal: Canal;
   forma: FormaPagamento;
   rotulo: string;
   percentual: number;

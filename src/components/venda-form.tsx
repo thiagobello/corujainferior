@@ -1,6 +1,9 @@
 // Formulário único de venda: usado pela Baixa Rápida, pela venda com vários
 // itens e pela venda avulsa (item sem cadastro, ex.: isqueiros). As regras
 // finais (status, taxa, divisão, idempotência) ficam no banco (registrar_venda).
+// Canal (loja, site Coruja, site Arquibancada) e forma são escolhidos à parte;
+// a taxa vem da combinação. No site da Arquibancada o dinheiro entra na conta
+// dela: a parte da Coruja abate o repasse.
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,11 +11,11 @@ import { Pressable, View } from 'react-native';
 
 import { buscarPorCodigo, listarConsignantes, listarTaxas, obterVenda, registrarVenda, type ItemVenda } from '@/lib/api';
 import { guardarRecentes, lerRecentes, type AvulsoRecente } from '@/lib/avulsos-recentes';
-import { brl, calcularVenda, centavosParaTexto, dividirLiquido, lerValor, paraCentavos, paraReais, type Divisao } from '@/lib/dinheiro';
+import { brl, calcularVenda, centavosParaTexto, dividirLiquido, efeitoRepasse, lerValor, paraCentavos, paraReais, type Canal, type Divisao } from '@/lib/dinheiro';
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO, useCores } from '@/lib/tema';
 import {
-  FORMAS_VENDA, PERTENCE, ROTULO_FORMA, dataBR, hojeISO,
+  CANAIS, FORMAS_VENDA, PERTENCE, ROTULO_CANAL, ROTULO_FORMA, dataBR, hojeISO,
   type Consignante, type FormaPagamento, type Pertence, type Produto, type Taxa,
 } from '@/lib/tipos';
 import { verificarAlertasSite } from './alerta-site';
@@ -68,6 +71,7 @@ export function VendaForm({
   const [recentes, setRecentes] = useState<AvulsoRecente[]>(() => lerRecentes());
   const [taxas, setTaxas] = useState<Taxa[]>([]);
   const [consignantes, setConsignantes] = useState<Consignante[]>([]);
+  const [canal, setCanal] = useState<Canal>('loja');
   const [forma, setForma] = useState<FormaPagamento | null>(null);
   const [cliente, setCliente] = useState('');
   const [obs, setObs] = useState('');
@@ -150,8 +154,12 @@ export function VendaForm({
     }
   }
 
-  const taxa = taxas.find((t) => t.forma === forma);
+  const taxa = taxas.find((t) => t.canal === canal && t.forma === forma);
+  const taxasDoCanal = taxas.filter((t) => t.canal === canal);
   const pct = taxa?.percentual ?? 0;
+  const rotuloTaxa = forma
+    ? `Taxa ${canal === 'loja' ? '' : `${ROTULO_CANAL[canal]} · `}${ROTULO_FORMA[forma]} (${pct.toLocaleString('pt-BR')}%)`
+    : 'Taxa';
 
   const calc = useMemo(() => {
     return itens.map((i) => {
@@ -191,9 +199,10 @@ export function VendaForm({
         lucro: t.lucro + x.r.lucroBruto,
         resultado: t.resultado + x.r.resultado,
         div: { coruja: t.div.coruja + x.div.coruja, arquibancada: t.div.arquibancada + x.div.arquibancada, consignante: t.div.consignante + x.div.consignante },
+        repasse: t.repasse + efeitoRepasse(x.div, canal),
       };
     },
-    { bruto: 0, desconto: 0, taxa: 0, liquido: 0, lucro: 0, resultado: 0, div: { coruja: 0, arquibancada: 0, consignante: 0 } as Divisao },
+    { bruto: 0, desconto: 0, taxa: 0, liquido: 0, lucro: 0, resultado: 0, div: { coruja: 0, arquibancada: 0, consignante: 0 } as Divisao, repasse: 0 },
   );
 
   function dataISO(): string | null {
@@ -233,14 +242,15 @@ export function VendaForm({
             />
           ))}
           <Separador />
+          {canal !== 'loja' && <ParValor rotulo="Canal" valor={ROTULO_CANAL[canal]} />}
           <ParValor rotulo="Forma de pagamento" valor={ROTULO_FORMA[forma!]} />
           {totais.desconto !== 0 && <ParValor rotulo="Desconto" valor={brl(totais.desconto)} />}
           <ParValor rotulo={`Taxa (${pct.toLocaleString('pt-BR')}%)`} valor={`− ${brl(totais.taxa)}`} />
           <ParValor rotulo="Cliente paga" valor={brl(totais.bruto)} destaque />
-          <ParValor rotulo="Loja recebe (líquido)" valor={brl(totais.liquido)} destaque />
+          <ParValor rotulo={`${canal === 'site_arquibancada' ? 'Arquibancada' : 'Coruja'} recebe (líquido)`} valor={brl(totais.liquido)} destaque />
           {pendente && <Aviso texto="Pendente: baixe ao receber." />}
           {itens.some((i) => i.tipo === 'produto' && i.produto.cadastrado_site) && <Aviso tipo="info" texto="Lembrete: remover do site." />}
-          {totais.div.arquibancada > 0 && <ParValor rotulo="A repassar à Arquibancada" valor={brl(totais.div.arquibancada)} />}
+          <RepasseLinha valor={totais.repasse} />
         </View>
       ),
     });
@@ -267,6 +277,7 @@ export function VendaForm({
         observacoes: obs,
         pendente,
         origem: itens.every((i) => i.tipo === 'avulso') ? 'avulsa' : origem,
+        canal,
       });
       const avulsos = itens.filter((i): i is ItemAvulso => i.tipo === 'avulso');
       if (avulsos.length) {
@@ -286,6 +297,7 @@ export function VendaForm({
   function reiniciar() {
     setItens(avulsoInicial ? [novoAvulso()] : []);
     setForma(null);
+    setCanal('loja');
     setCliente('');
     setObs('');
     setPendente(false);
@@ -317,14 +329,14 @@ export function VendaForm({
           <ParValor rotulo="Líquido" valor={brl(paraCentavos(v.valor_liquido))} destaque />
         </Cartao>
         {(() => {
-          // O dinheiro entra na loja; a parte da Arquibancada fica pendente para o repasse semanal.
-          const repasse = concluida.lancamentos
-            .filter((l: any) => l.beneficiario === 'arquibancada')
-            .reduce((s: number, l: any) => s + (paraCentavos(l.valor) ?? 0), 0);
-          return repasse > 0 ? (
+          // Quem ficou com o dinheiro deve à outra marca a parte dela (repasse semanal).
+          const soma = (b: (x: string) => boolean) =>
+            concluida.lancamentos.filter((l: any) => b(l.beneficiario)).reduce((s: number, l: any) => s + (paraCentavos(l.valor) ?? 0), 0);
+          const repasse = v.canal === 'site_arquibancada' ? 0 - soma((b) => b === 'coruja') : soma((b) => b === 'arquibancada');
+          return repasse !== 0 ? (
             <Aviso
               tipo="info"
-              texto={`A repassar à Arquibancada: ${brl(repasse)}`}
+              texto={repasse > 0 ? `A repassar à Arquibancada: ${brl(repasse)}` : `Arquibancada deve à Coruja: ${brl(-repasse)}`}
               acao={<Botao compacto v="secundario" titulo="Repasses" onPress={() => router.push('/repasses')} />}
             />
           ) : null;
@@ -427,9 +439,10 @@ export function VendaForm({
                 <>
                   <Separador />
                   {i.quantidade > 1 && <ParValor rotulo={`Total (${i.quantidade} × ${brl(lerValor(i.valorTexto))})`} valor={brl(x.r.bruto)} destaque />}
-                  {forma && <ParValor rotulo={`Taxa ${ROTULO_FORMA[forma]} (${pct.toLocaleString('pt-BR')}%)`} valor={`− ${brl(x.r.taxa)}`} />}
+                  {forma && <ParValor rotulo={rotuloTaxa} valor={`− ${brl(x.r.taxa)}`} />}
                   {forma && <ParValor rotulo="Líquido" valor={brl(x.r.liquido)} destaque />}
                   {forma && x.div && <DivisaoLinha div={x.div} />}
+                  {forma && x.div && canal === 'site_arquibancada' && <RepasseLinha valor={efeitoRepasse(x.div, canal)} />}
                 </>
               )}
             </Cartao>
@@ -471,12 +484,13 @@ export function VendaForm({
             )}
             {x.r && forma && (
               <>
-                <ParValor rotulo={`Taxa ${ROTULO_FORMA[forma]} (${pct.toLocaleString('pt-BR')}%)`} valor={`− ${brl(x.r.taxa)}`} />
+                <ParValor rotulo={rotuloTaxa} valor={`− ${brl(x.r.taxa)}`} />
                 <ParValor rotulo="Líquido" valor={brl(x.r.liquido)} destaque />
                 <ParValor rotulo="Custo" valor={x.r.custoInformado ? brl(paraCentavos(i.produto.custo)) : 'não informado'} />
                 <ParValor rotulo="Lucro bruto" valor={brl(x.r.lucroBruto)} />
                 <ParValor rotulo="Resultado" valor={brl(x.r.resultado)} cor={x.r.resultado < 0 ? c.perigo : c.primaria} destaque />
                 {x.div && <DivisaoLinha div={x.div} />}
+                {x.div && canal === 'site_arquibancada' && <RepasseLinha valor={efeitoRepasse(x.div, canal)} />}
               </>
             )}
           </Cartao>
@@ -486,12 +500,14 @@ export function VendaForm({
       {itens.length > 0 && (
         <>
           <Secao titulo="Pagamento">
+            <Chips opcoes={CANAIS} rotulos={ROTULO_CANAL} valor={canal} onChange={(v) => setCanal(v ?? 'loja')} />
             <Chips
               opcoes={FORMAS_VENDA}
-              rotulos={Object.fromEntries(taxas.map((t) => [t.forma, `${t.rotulo} · ${t.percentual.toLocaleString('pt-BR')}%`]))}
+              rotulos={Object.fromEntries(taxasDoCanal.map((t) => [t.forma, `${t.rotulo} · ${t.percentual.toLocaleString('pt-BR')}%`]))}
               valor={forma}
               onChange={setForma}
             />
+            {canal === 'site_arquibancada' && <Aviso tipo="info" texto="Entra na conta da Arquibancada. A parte da Coruja abate o repasse." />}
             <Chips
               opcoes={['recebido', 'pendente'] as const}
               rotulos={{ recebido: taxa?.liquidacao === 'proximo_dia_util' ? 'Pago (cai no próximo dia útil)' : 'Pago agora', pendente: 'Pagamento pendente' }}
@@ -516,6 +532,7 @@ export function VendaForm({
               <ParValor rotulo="Líquido" valor={brl(totais.liquido)} destaque />
               <ParValor rotulo="Resultado" valor={brl(totais.resultado)} />
               <DivisaoLinha div={totais.div} />
+              <RepasseLinha valor={totais.repasse} />
             </Cartao>
           )}
 
@@ -525,6 +542,14 @@ export function VendaForm({
       )}
     </View>
   );
+}
+
+/** Efeito da venda no repasse semanal (positivo: Coruja deve; negativo: Arquibancada deve). */
+function RepasseLinha({ valor }: { valor: number }) {
+  if (valor === 0) return null;
+  return valor > 0
+    ? <ParValor rotulo="A repassar à Arquibancada" valor={brl(valor)} />
+    : <ParValor rotulo="Abate do repasse" valor={brl(-valor)} />;
 }
 
 function DivisaoLinha({ div }: { div: Divisao }) {

@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { brlReais } from '@/lib/dinheiro';
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO, useCores } from '@/lib/tema';
-import { ROTULO_FORMA, ROTULO_MARCA, dataBR, dataHoraBR } from '@/lib/tipos';
+import { ROTULO_CANAL, ROTULO_FORMA, ROTULO_MARCA, dataBR, dataHoraBR } from '@/lib/tipos';
 import { useConsulta } from '@/lib/useConsulta';
 
 const ORIGEM: Record<string, string> = { venda: 'Tela de vendas', baixa_rapida: 'Baixa rápida', avulsa: 'Venda avulsa' };
@@ -78,7 +78,8 @@ export default function DetalheVenda() {
         {cancelada ? <Etiqueta texto="Cancelada" cor={c.perigo} fundo={c.perigoSuave} /> : <Etiqueta texto="Concluída" cor={c.primaria} fundo={c.primariaSuave} />}
       </Linha>
       <T v="legenda">
-        {dataBR(v.data_venda)} · {ROTULO_FORMA[v.forma as keyof typeof ROTULO_FORMA]} · {ORIGEM[v.origem] ?? v.origem}
+        {dataBR(v.data_venda)} · {v.canal && v.canal !== 'loja' ? `${ROTULO_CANAL[v.canal as keyof typeof ROTULO_CANAL]} · ` : ''}
+        {ROTULO_FORMA[v.forma as keyof typeof ROTULO_FORMA]} · {ORIGEM[v.origem] ?? v.origem}
       </T>
       {cancelada && <Aviso tipo="perigo" texto={`Cancelada em ${dataHoraBR(v.cancelada_em)}: ${v.motivo_cancelamento}`} />}
 
@@ -119,13 +120,17 @@ export default function DetalheVenda() {
           <Separador />
           <ParValor rotulo="Total líquido" valor={brlReais(v.valor_liquido)} destaque />
           {(() => {
-            const rep = lancamentos.filter((l: any) => l.beneficiario === 'arquibancada');
+            // Site da Arquibancada: o dinheiro está com ela e a parte da Coruja
+            // volta à Coruja (abate o repasse); a do proprietário fica fora.
+            // Demais canais: a parte da Arquibancada é repassada a ela.
+            const siteArq = v.canal === 'site_arquibancada';
+            const rep = lancamentos.filter((l: any) => (l.beneficiario === (siteArq ? 'coruja' : 'arquibancada')));
             if (!rep.length) return null;
             const repassado = rep.every((l: any) => l.repasse_id);
             const estornar = cancelada && rep.some((l: any) => l.repasse_id && !l.estorno_repasse_id);
             return (
               <ParValor
-                rotulo="Repasse à Arquibancada"
+                rotulo={siteArq ? 'Arquibancada deve à Coruja' : 'Repasse à Arquibancada'}
                 valor={cancelada ? (estornar ? 'estorno no próximo repasse' : repassado ? 'estornado' : 'cancelado') : repassado ? 'repassado' : 'pendente'}
                 cor={!cancelada && !repassado ? c.alerta : undefined}
               />
@@ -145,6 +150,7 @@ export default function DetalheVenda() {
                 </T>
                 <T v="legenda">
                   {p.recebido ? `Recebido em ${dataBR(p.data_recebimento)}` : p.liquidacao === 'automatica' ? `Cai em ${dataBR(p.vencimento)}` : 'Pendente'}
+                  {p.recebedor === 'arquibancada' ? ' · conta da Arquibancada' : ''}
                 </T>
               </View>
               <Botao

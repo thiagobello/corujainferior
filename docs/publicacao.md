@@ -101,4 +101,4 @@ vercel.com › **Add New › Project** › importe o repositório (o `vercel.jso
 ## Limites e cuidados
 
 - Cloudflare gratuito: requisições a arquivos estáticos e banda ilimitadas; builds com limite mensal generoso.
-- Supabase gratuito: ~500 MB de banco, ~1 GB de fotos, pausa após 7 dias sem uso, **sem backup automático** — configure um backup periódico (ver `decisoes-e-pendencias.md`).
+- Supabase gratuito: ~500 MB de banco, ~1 GB de fotos, pausa após 7 dias sem uso, **sem backup automático** — rode `./scripts/backup.sh` periodicamente (ver `banco-de-dados.md` › Backup local).

@@ -19,12 +19,15 @@ Estoque, vendas e financeiro das marcas Coruja Sports e Arquibancada Inferior. U
    - `supabase/migrations/20261013000011_orcamentos.sql`
    - `supabase/migrations/20261013000012_orcamento_pecas.sql`
    - `supabase/migrations/20261014000013_sugerir_modelos.sql`
+   - `supabase/migrations/20261015000014_formas_site.sql` (rode **sozinha**, antes da próxima)
+   - `supabase/migrations/20261015000015_venda_site.sql`
+   - `supabase/migrations/20261015000016_taxas_por_canal.sql`
 
    (Ou, com a [Supabase CLI](https://supabase.com/docs/guides/cli): `npx supabase link` e depois `npx supabase db push`.)
 3. **Login:** em **Authentication › Sign In / Providers › Email**, decida se quer exigir confirmação de e-mail. Se mantiver ativada, cada novo usuário precisa clicar no link recebido antes de entrar.
 4. **Chaves do app:** copie `.env.example` para `.env.local` e preencha com os valores de **Project Settings › API** (URL e *publishable key*).
 5. **Primeiro acesso:** rode o app e crie a primeira conta. **Ela vira administradora automaticamente**; as próximas entram como vendedoras.
-6. **Taxas:** em **Mais › Taxas**, cadastre os percentuais da maquininha. Eles começam em 0%.
+6. **Taxas:** em **Mais › Taxas**, cadastre os percentuais de Pix, Débito e Crédito 1x/2x/3x em cada bloco (Loja, Site Coruja, Site Arquibancada) e, nos sites, o recebimento. Eles começam em 0%.
 
 ## Rodando
 
@@ -34,6 +37,8 @@ npm test              # testes do banco e dos cálculos
 npm run typecheck
 npx expo lint
 ```
+
+Backup do banco e das fotos para o computador: preencha a senha em `.env.backup.local` (modelo em `.env.backup.example`) e rode `./scripts/backup.sh` — ou peça ao agente **coruja-backup** no Claude Code. Para rodar sozinho toda segunda às 15h: `./scripts/agendar-backup.sh` (detalhes em [docs/banco-de-dados.md](docs/banco-de-dados.md)).
 
 Para publicar o site de graça (Cloudflare Pages ou Vercel), siga [docs/publicacao.md](docs/publicacao.md). HTTPS é obrigatório para a câmera funcionar no navegador.
 
