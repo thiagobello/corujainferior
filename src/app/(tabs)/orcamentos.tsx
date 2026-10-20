@@ -33,7 +33,7 @@ export default function Orcamentos() {
   return (
     <Tela atualizando={carregando} onAtualizar={recarregar} bordas={[]}>
       <Botao icone="add" titulo="Novo orçamento" onPress={() => router.push('/orcamentos/novo')} />
-      <Campo placeholder="Buscar cliente ou número" value={busca} onChangeText={setBusca} autoCorrect={false} />
+      <Campo placeholder="Buscar cliente ou número" value={busca} onChangeText={setBusca} autoCorrect={false} limpar />
       <Chips
         opcoes={opcoes.map((s) => s.codigo)}
         rotulos={Object.fromEntries(opcoes.map((s) => [s.codigo, `${s.rotulo} (${(dados?.orcamentos ?? []).filter((o) => o.status === s.codigo).length})`]))}

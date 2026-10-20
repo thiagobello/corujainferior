@@ -21,6 +21,9 @@ Todo o schema está em `supabase/migrations/`, aplicado **em ordem**. As migrati
 | 13 | `20261014000013_sugerir_modelos.sql` | `sem_acento`, `sugerir_modelos` (autocomplete da descrição) |
 | 14 | `20261015000014_formas_site.sql` | Formas `site_coruja` e `site_arquibancada` no enum `forma_pagamento`. **Sozinha de propósito:** valor novo de enum não pode ser usado na mesma transação em que foi criado — rode antes da 15 |
 | 16 | `20261015000016_taxas_por_canal.sql` | Taxas por **(canal, forma)**: `taxas.canal` + PK `(canal, forma)`, 5 formas por site (semeadas da taxa única da 15), `taxas_historico.canal`; remove o gatilho `vendas_definir_canal`; `registrar_venda(…, p_canal)`, `_inserir_venda(…, p_canal)`, `atualizar_taxa(forma, percentual, canal)`, `definir_liquidacao_taxa(canal, forma, liquidacao)`; formas `site_*` viram legado |
+| 17 | `20261020000017_forma_dinheiro.sql` | Forma `dinheiro` no enum `forma_pagamento`. **Sozinha de propósito** (como a 14) — rode antes da 18 |
+| 18 | `20261020000018_venda_dinheiro.sql` | Dinheiro: check `taxas_sem_dinheiro` (não existe linha de taxa), `atualizar_taxa` recusa Dinheiro, `registrar_venda` aceita `dinheiro` só no canal loja e força taxa 0 (recebido na hora) |
+| 19 | `20261020000019_busca_estoque.sql` | Busca ampla: `casa_busca`, `listar_unidades` (unidades filtradas, base da lista e da exportação), `listar_grupos` sobre `listar_unidades` |
 | 15 | `20261015000015_venda_site.sql` | Venda pelo site: taxas dos sites, `vendas.canal` + gatilho `vendas_definir_canal`, `definir_liquidacao_taxa`, `pagamentos_situacao` com `canal`/`recebedor`, `repasse_pendente` nos dois sentidos, `resumo_financeiro` com `por_canal` e recebimentos por recebedor |
 
 ### Como criar uma migration nova
@@ -53,7 +56,7 @@ Todo o schema está em `supabase/migrations/`, aplicado **em ordem**. As migrati
 | `condicao_produto` | Nova, Usada |
 | `pertence_produto` | Coruja Sports, Arquibancada Inferior, Concessão, Ambos |
 | `status_produto` | Disponível, Vendida, Reservada, Emprestada |
-| `forma_pagamento` | pix, debito, credito_1x, credito_2x, credito_3x; legado: site_coruja, site_arquibancada (taxa única por site, migration 15), outro |
+| `forma_pagamento` | pix, dinheiro (sem taxa, só loja; migration 17/18), debito, credito_1x, credito_2x, credito_3x; legado: site_coruja, site_arquibancada (taxa única por site, migration 15), outro |
 | `papel_usuario` | admin, vendedor |
 
 ## Tabelas
@@ -62,7 +65,7 @@ Todo o schema está em `supabase/migrations/`, aplicado **em ordem**. As migrati
 - **`perfis`** — `id` (= `auth.users.id`), `nome`, `email`, `papel`, `ativo`, `criado_em`. Criado pelo gatilho `on_auth_user_created`.
 - **`prefixos`** (categorias) — `prefixo` (PK, 1–3 letras), `descricao` (único, sem diferenciar maiúsculas), `proximo` (contador, só cresce), `digitos` (padrão 3), `arquivada`.
 - **`consignantes`** — `nome`, `contato`, `tipo_acordo` (`percentual`|`fixo`), `valor_acordo` (≤100 se percentual), `marca_restante` (`coruja`|`arquibancada`|`ambos`), `observacoes`.
-- **`taxas`** — PK `(canal, forma)`; `canal` (`loja`|`site_coruja`|`site_arquibancada`), `forma`, `rotulo`, `percentual` numeric(7,4), `parcelas`, `liquidacao` (`imediata`|`proximo_dia_util`|`mensal`), `ordem`. Loja: Pix=imediata; débito/crédito=proximo_dia_util, parcelas 1 (mais a linha legada `outro`). Cada site: Pix, Débito, Crédito 1x/2x/3x, começando em proximo_dia_util; o admin troca por linha para imediata (`definir_liquidacao_taxa`). (migration 16)
+- **`taxas`** — PK `(canal, forma)`; `canal` (`loja`|`site_coruja`|`site_arquibancada`), `forma`, `rotulo`, `percentual` numeric(7,4), `parcelas`, `liquidacao` (`imediata`|`proximo_dia_util`|`mensal`), `ordem`. Loja: Pix=imediata; débito/crédito=proximo_dia_util, parcelas 1 (mais a linha legada `outro`). Cada site: Pix, Débito, Crédito 1x/2x/3x, começando em proximo_dia_util; o admin troca por linha para imediata (`definir_liquidacao_taxa`). (migration 16) **Dinheiro não tem linha** (check `taxas_sem_dinheiro`, migration 18): a taxa 0 é forçada em `registrar_venda`.
 - **`taxas_historico`** — mudanças de percentual (`canal`, forma, anterior, novo, usuário, data).
 
 ### Estoque
@@ -123,7 +126,9 @@ Todo o schema está em `supabase/migrations/`, aplicado **em ordem**. As migrati
 | `verificar_codigo(codigo, prefixo)` | D | `{disponivel, codigo normalizado, motivo}` | 6 |
 | `criar_produtos(dados jsonb, tamanhos text[], codigos text[])` | D | Um produto por posição de `tamanhos` (repetir tamanho = várias unidades); código vazio = gera; trava a categoria; atualiza contador | 6 |
 | `sugerir_modelos(busca, limite)` | I | Autocomplete: modelos por descrição (todas as palavras, sem acento) com unidades, disponíveis, tamanhos, `produto_base` | 13 |
-| `listar_grupos(busca, status, prefixo, tamanho, tipo, condicao, pertence, site, limite, offset)` | I | Estoque agrupado por descrição com tamanhos/quantidades e `total` para paginação | 7 |
+| `casa_busca(texto, codigo, busca)` | I | Todas as palavras da busca no texto (sem acento, qualquer posição) ou busca = início do código | 19 |
+| `listar_unidades(busca, status, prefixo, tamanho, tipo, condicao, pertence, site)` | I | Unidades de `produtos_lista` filtradas (busca em descrição, código, cor, tamanho e categoria; código normalizado `M01386` = `M1386`). Usada na exportação do estoque | 19 |
+| `listar_grupos(busca, status, prefixo, tamanho, tipo, condicao, pertence, site, limite, offset)` | I | Estoque agrupado por descrição com tamanhos/quantidades e `total` para paginação; filtra por `listar_unidades` | 19 |
 | `criar_categoria(descricao, prefixo)` | D admin | Valida sigla (1–3 letras) e nomes únicos | 8 |
 | `renomear_categoria` / `arquivar_categoria` / `excluir_categoria` | D admin | Excluir só sem produtos | 8 |
 | Gatilho `produtos_guarda` | — | Bloqueia mudar código e status fora das funções (`app.operacao`) | 1 |
@@ -140,13 +145,13 @@ Todo o schema está em `supabase/migrations/`, aplicado **em ordem**. As migrati
 ### Vendas, recebimentos e divisão
 | Função | Tipo | Descrição | Migration |
 |---|---|---|---|
-| `registrar_venda(chave, itens jsonb, forma, data, cliente, obs, pendente, origem, canal)` | D | Entrada pública da venda. Itens: `{produto_id, valor_bruto}` ou avulso `{descricao, quantidade, valor_bruto, pertence, consignante_id}`. Origem: venda, baixa_rapida, avulsa. Forma: pix…credito_3x. Canal: loja (padrão), site_coruja, site_arquibancada | 16 |
+| `registrar_venda(chave, itens jsonb, forma, data, cliente, obs, pendente, origem, canal)` | D | Entrada pública da venda. Itens: `{produto_id, valor_bruto}` ou avulso `{descricao, quantidade, valor_bruto, pertence, consignante_id}`. Origem: venda, baixa_rapida, avulsa. Forma: pix, dinheiro (só canal loja, taxa 0 forçada), debito…credito_3x. Canal: loja (padrão), site_coruja, site_arquibancada | 18 |
 | `_inserir_venda(…, p_canal)` | D interna | Núcleo: idempotência, taxa da combinação canal + forma, travas, validações, itens, divisão, status, histórico, alerta, recebimentos | 16 |
 | `_criar_pagamentos(venda, taxa, data, bruto, taxa_total, pendente, importacao)` | D interna | Regras de recebimento (imediata / próximo dia útil / mensal) | 10 |
 | `_dividir_item` / `_lancar_marca` | D internas | Divisão do líquido entre marcas/consignante | 2 |
 | `cancelar_venda(venda, motivo)` | D admin | Desfaz venda mantendo histórico | 2 |
 | `marcar_pagamento(pagamento, recebido, data)` | D | Marca/desmarca recebimento | 2 |
-| `atualizar_taxa(forma, percentual, canal)` | D admin | Taxa de uma combinação (canal padrão `loja`); grava histórico | 16 |
+| `atualizar_taxa(forma, percentual, canal)` | D admin | Taxa de uma combinação (canal padrão `loja`); grava histórico; recusa Dinheiro | 18 |
 | `definir_usuario(usuario, papel, ativo)` | D admin | Papel e acesso | 2 |
 | `resumo_estoque()` | I | Contagens por status, custo e valor potencial | 2 |
 | `resumo_financeiro(inicio, fim, marca)` | I | Painel (ver regras §12); inclui `avulsos`, `por_canal`, recebimentos da Coruja (`recebido_periodo`, `a_receber`…) e da Arquibancada (`recebido_arquibancada`, `a_receber_arquibancada`) | 15 |

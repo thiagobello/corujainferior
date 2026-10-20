@@ -11,7 +11,7 @@
 ### Menu inferior — `src/app/(tabs)/`
 | Aba | Arquivo | Conteúdo |
 |---|---|---|
-| Estoque | `index.tsx` | Busca, filtros (categoria, tamanho, status, tipo, condição, pertence, site), lista **agrupada por descrição** (`listar_grupos`), paginação infinita, exportar XLSX/CSV pelo ícone do cabeçalho |
+| Estoque | `index.tsx` | Busca ampla (sem acento, trechos, várias palavras; X para limpar), filtros (categoria, tamanho, status, tipo, condição, pertence, site), lista **agrupada por descrição** (`listar_grupos`), paginação infinita, exportar XLSX/CSV pelo ícone do cabeçalho |
 | Baixa Rápida | `baixa.tsx` | `VendaForm` de 1 item; aceita `?codigo=` (vindo do produto/scanner) |
 | Cadastrar | `cadastrar.tsx` | `ProdutoForm` (novo) → `criar_produtos`; tela de sucesso com os códigos criados |
 | Orçamentos | `orcamentos.tsx` | Lista com busca e filtro por status; botão "Novo orçamento" |
@@ -48,7 +48,7 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 
 | Arquivo | Para quê |
 |---|---|
-| `ui.tsx` | Base visual: `Tela` (scroll + safe area + puxar para atualizar), `Cartao`, `Linha`, `Secao`, `T` (variantes de texto), `Botao`, `BotaoIcone`, `Campo`, `Chips`/`ChipsMulti`/`Chip`, `Selo` (status), `Etiqueta`, `Estatistica`, `ParValor`, `Foto`, `Aviso`, `Carregando`, `Vazio`, `ErroCaixa`, `Separador` |
+| `ui.tsx` | Base visual: `Tela` (scroll + safe area + puxar para atualizar), `Cartao`, `Linha`, `Secao`, `T` (variantes de texto), `Botao`, `BotaoIcone`, `Campo` (com `limpar`: X que apaga o texto, para buscas — Estoque, Orçamentos e busca do `Selecao`), `Chips`/`ChipsMulti`/`Chip`, `Selo` (status), `Etiqueta`, `Estatistica`, `ParValor`, `Foto`, `Aviso`, `Carregando`, `Vazio`, `ErroCaixa`, `Separador` |
 | `dialogos.tsx` | `useDialogos()` → `confirmar({titulo, mensagem, conteudo, confirmar, perigo})` e `avisar(msg, 'erro')` (substitui `Alert`) |
 | `selecao.tsx` | Dropdown único/múltiplo em modal; fecha teclado; `rodape` para ações extras |
 | `categoria-select.tsx` | Dropdown de categorias (só nomes; `incluirArquivadas` nos filtros) |
@@ -56,7 +56,7 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 | `tamanhos-codigos.tsx` | Bloco "Tamanhos e códigos": linha por tamanho (qtd − +, faixa `M1388–1392`), edição de códigos por unidade, conferência no banco. Exposto via `ref.obter()` |
 | `foto-ampliavel.tsx` | `FotoAmpliavel`: miniatura que abre a foto em tela cheia ao tocar (fundo escuro, sem cortes; toque ou X fecha). Usada no detalhe do produto e no grupo |
 | `produto-linha.tsx` | `ProdutoLinha` (unidade) e `GrupoLinha` (grupo com tamanhos) — descrição em destaque |
-| `venda-form.tsx` | Formulário único de venda (produto do estoque e item avulso), canal (chips Loja · Site Coruja · Site Arquibancada) e, abaixo, forma (Pix…3x) com a taxa da combinação, prévia de taxa/líquido/divisão e efeito no repasse ("A repassar à Arquibancada" / "Abate do repasse"), confirmação, idempotência, recentes de avulsos |
+| `venda-form.tsx` | Formulário único de venda (produto do estoque e item avulso), canal (chips Loja · Site Coruja · Site Arquibancada) e, abaixo, forma (Pix…3x com a taxa da combinação; **Dinheiro** só no canal Loja, sem taxa — trocar para o site desmarca), prévia (sem linha de taxa no Dinheiro), prévia de taxa/líquido/divisão e efeito no repasse ("A repassar à Arquibancada" / "Abate do repasse"), confirmação, idempotência, recentes de avulsos |
 | `orcamento-form.tsx` | Orçamento com várias camisas (serviços por posição, “a partir de”, personalizados, fotos); `prepararPecas` envia fotos |
 | `status-orcamento.tsx` | `SeloOrcamento` (cor por status) |
 | `periodo.tsx` | `FiltroPeriodo` (hoje, 7 dias, mês, mês passado, ano, tudo, personalizado) |
@@ -68,8 +68,8 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 | Arquivo | Para quê |
 |---|---|
 | `supabase.ts` | Cliente, `SUPABASE_CONFIGURADO`, `urlFoto(path)`, `mensagemErro(e)` (traduz erros) |
-| `api.ts` | **Toda** a comunicação com o banco (consultas e RPCs). Tipos `GrupoProduto`, `ItemVenda`, `Categoria`, `Servico`, `Orcamento`, `PecaOrcamento`… e helpers `normalizarCodigo`, `nomeServico`, `descricaoServico`, `GRUPOS_SERVICO` |
-| `tipos.ts` | Tipos de domínio, listas (status, tipos, pertence, formas, `CANAIS`, tamanhos), rótulos (`ROTULO_FORMA`, `ROTULO_CANAL`…), datas (`dataBR`, `hojeISO`) |
+| `api.ts` | **Toda** a comunicação com o banco (consultas e RPCs). Estoque: `listarGrupos` (lista) e `todosProdutos` (exportação) usam os mesmos filtros (`listar_grupos`/`listar_unidades`). Tipos `GrupoProduto`, `ItemVenda`, `Categoria`, `Servico`, `Orcamento`, `PecaOrcamento`… e helpers `normalizarCodigo`, `nomeServico`, `descricaoServico`, `GRUPOS_SERVICO` |
+| `tipos.ts` | Tipos de domínio, listas (status, tipos, pertence, formas com taxa `FORMAS_VENDA`, `formasDoCanal(canal)` (inclui Dinheiro na loja), `CANAIS`, tamanhos), rótulos (`ROTULO_FORMA`, `ROTULO_CANAL`…), datas (`dataBR`, `hojeISO`) |
 | `dinheiro.ts` | Centavos inteiros: `lerValor` ("189,90"→18990), `brl`, `brlReais`, `calcularTaxa`, `calcularVenda`, `dividirLiquido`, `efeitoRepasse(div, canal)` (espelham o banco); tipo `Canal` |
 | `auth.tsx` | `AuthProvider`/`useAuth()` → `sessao`, `perfil`, `admin`, `sair`, `recarregarPerfil` |
 | `useConsulta.ts` | Carrega ao focar a tela e quando `deps` mudam; `{dados, erro, carregando, recarregar}` |

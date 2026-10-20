@@ -748,3 +748,83 @@ test('taxa por canal + forma: 9 casos de divisão/repasse, venda antiga intacta,
   assert.equal(soma(r.por_forma), Math.round(num(r.bruto) * 100));
   assert.deepEqual(r.por_forma.map((x) => x.forma), ['credito_3x']);
 });
+
+test('dinheiro: taxa sempre 0, recebido na hora, divisão e repasse normais, só na loja', async () => {
+  const pend = async (venda) => num((await um(`select coalesce(sum(valor), 0) v from repasse_pendente where venda_id = $1`, [venda])).v);
+  // Não é configurável: nem pela função, nem por linha direta em taxas.
+  await assert.rejects(db.query(`select atualizar_taxa('dinheiro', 2)`), /Dinheiro não tem taxa/);
+  await assert.rejects(
+    db.query(`insert into taxas (canal, forma, rotulo, percentual, parcelas, liquidacao, ordem) values ('loja', 'dinheiro', 'Dinheiro', 5, 1, 'proximo_dia_util', 9)`),
+    /taxas_sem_dinheiro/,
+  );
+
+  // [pertence, lançamentos, repasse] — bruto 99,99 sem taxa.
+  const casos = [
+    ['Coruja Sports', { coruja: 99.99 }, 0],
+    ['Arquibancada Inferior', { arquibancada: 99.99 }, 99.99],
+    ['Ambos', { coruja: 50, arquibancada: 49.99 }, 49.99], // centavo ímpar para a Coruja
+  ];
+  for (const [pertence, lancs, repasse] of casos) {
+    const [p] = await produto({ pertence, prefixo: pertence === 'Arquibancada Inferior' ? 'AI' : 'M' });
+    const v = await vender([{ produto_id: p.id, valor_bruto: 99.99 }], 'dinheiro', { data: '2026-08-07' });
+    const vv = await um(`select forma, canal, taxa_percentual, taxa_valor, valor_liquido from vendas where id = $1`, [v]);
+    assert.deepEqual([vv.forma, vv.canal, num(vv.taxa_percentual), num(vv.taxa_valor), num(vv.valor_liquido)],
+      ['dinheiro', 'loja', 0, 0, 99.99], pertence);
+    assert.deepEqual(await lanc(v), lancs, pertence);
+    assert.equal(await pend(v), repasse, pertence);
+    // Recebido na hora (data da venda), como o Pix.
+    const pg = await um(`select status, recebido_em, vencimento, valor_liquido from pagamentos where venda_id = $1`, [v]);
+    assert.equal(pg.status, 'recebido');
+    assert.equal(pg.recebido_em.toISOString().slice(0, 10), '2026-08-07');
+    assert.equal(num(pg.valor_liquido), 99.99);
+  }
+
+  // Concessão: proprietário fora do acerto; restante segue a marca.
+  const cs = await um(`insert into consignantes (nome, tipo_acordo, valor_acordo, marca_restante) values ('Dono Dinheiro', 'percentual', 80, 'arquibancada') returning id`);
+  const [pc] = await produto({ pertence: 'Concessão', consignante_id: cs.id });
+  const vc = await vender([{ produto_id: pc.id, valor_bruto: 100 }], 'dinheiro', { data: '2026-08-07' });
+  assert.deepEqual(await lanc(vc), { consignante: 80, arquibancada: 20 });
+  assert.equal(await pend(vc), 20);
+
+  // Pagamento pendente continua manual.
+  const [pp] = await produto({});
+  const vp = await vender([{ produto_id: pp.id, valor_bruto: 50 }], 'dinheiro', { pendente: true });
+  const pgp = await um(`select status, liquidacao from pagamentos where venda_id = $1`, [vp]);
+  assert.deepEqual([pgp.status, pgp.liquidacao], ['pendente', 'manual']);
+
+  // Dinheiro só na loja.
+  const [ps] = await produto({});
+  await assert.rejects(vender([{ produto_id: ps.id, valor_bruto: 10 }], 'dinheiro', { canal: 'site_coruja' }), /só nas vendas da loja/);
+  await assert.rejects(vender([{ produto_id: ps.id, valor_bruto: 10 }], 'dinheiro', { canal: 'site_arquibancada' }), /só nas vendas da loja/);
+
+  // Painel mostra a forma Dinheiro.
+  const r = (await um(`select resumo_financeiro('2026-08-07', '2026-08-07') r`)).r;
+  assert.ok(r.por_forma.some((x) => x.forma === 'dinheiro'));
+});
+
+test('busca do estoque: sem acento, trecho, várias palavras, código e cor', async () => {
+  await produto({ descricao: 'São Paulo Tricolor Busca', cor: 'Vermelha' }, ['P', 'G']);
+  const [cor] = await produto({ descricao: 'Corinthians Timão 2009 Busca', prefixo: 'F' });
+  const grupos = async (b) => (await db.query(`select descricao, unidades from listar_grupos($1)`, [b])).rows.map((g) => g.descricao);
+
+  assert.deepEqual(await grupos('sao paulo tric'), ['São Paulo Tricolor Busca']);
+  assert.deepEqual(await grupos('SÃO PAULO TRICOLOR'), ['São Paulo Tricolor Busca']);
+  assert.deepEqual(await grupos('corin'), ['Corinthians 1990', 'Corinthians Timão 2009 Busca']);
+  assert.deepEqual(await grupos('timao'), ['Corinthians Timão 2009 Busca']);
+  assert.deepEqual(await grupos('2009 corinthians'), ['Corinthians Timão 2009 Busca']);
+  assert.deepEqual(await grupos('corinthians 2010'), []);
+  assert.deepEqual(await grupos('tricolor vermelha'), ['São Paulo Tricolor Busca']); // cor
+  assert.deepEqual(await grupos('feminino timao'), ['Corinthians Timão 2009 Busca']); // categoria
+  // Código: pelo início, minúsculo e com zeros a mais.
+  const n = cor.codigo.slice(1);
+  assert.deepEqual(await grupos(cor.codigo.toLowerCase()), ['Corinthians Timão 2009 Busca']);
+  assert.deepEqual(await grupos(`f 0${n}`), ['Corinthians Timão 2009 Busca']);
+  // Número enorme não quebra a busca.
+  assert.deepEqual(await grupos('M999999999999999'), []);
+
+  // Exportação usa o mesmo filtro, uma linha por unidade.
+  const u = (await db.query(`select codigo, categoria from listar_unidades('sao paulo tricolor')`)).rows;
+  assert.equal(u.length, 2);
+  const g = (await db.query(`select codigo from listar_unidades('busca', null, null, 'G')`)).rows;
+  assert.equal(g.length, 1);
+});

@@ -26,25 +26,20 @@ export interface FiltrosEstoque {
 
 const POR_PAGINA = 50;
 
-function aplicarFiltros(q: any, f: FiltrosEstoque) {
-  q = q.eq('arquivado', false);
-  const busca = (f.busca ?? '').replace(/[,()%*\\]/g, ' ').trim();
-  if (busca) {
-    const cod = normalizarCodigo(busca);
-    q = cod.length >= 2 && /^[A-Z]{1,3}\d+$/.test(cod)
-      ? q.or(`codigo.ilike.${cod}%,descricao.ilike.%${busca}%`)
-      : q.ilike('descricao', `%${busca}%`);
-  }
-  if (f.status) q = q.eq('status', f.status);
-  if (f.prefixo) q = q.eq('prefixo', f.prefixo);
-  if (f.tamanho) q = q.eq('tamanho', f.tamanho);
-  if (f.tipo) q = q.eq('tipo', f.tipo);
-  if (f.condicao) q = q.eq('condicao', f.condicao);
-  if (f.pertence) q = q.eq('pertence', f.pertence);
-  if (f.site === 'sim') q = q.eq('cadastrado_site', true);
-  if (f.site === 'nao') q = q.eq('cadastrado_site', false);
-  if (f.site === 'nv') q = q.is('cadastrado_site', null);
-  return q;
+// Busca e filtros ficam no banco (listar_unidades): sem acento, trechos em
+// qualquer posição e todas as palavras em qualquer ordem. A lista e a
+// exportação usam o mesmo filtro.
+function paramsFiltros(f: FiltrosEstoque) {
+  return {
+    p_busca: f.busca?.trim() || null,
+    p_status: f.status ?? null,
+    p_prefixo: f.prefixo ?? null,
+    p_tamanho: f.tamanho ?? null,
+    p_tipo: f.tipo ?? null,
+    p_condicao: f.condicao ?? null,
+    p_pertence: f.pertence ?? null,
+    p_site: f.site ?? null,
+  };
 }
 
 export interface GrupoProduto {
@@ -65,14 +60,7 @@ export interface GrupoProduto {
 /** Produtos de mesma descrição agrupados (um item com vários tamanhos). */
 export async function listarGrupos(f: FiltrosEstoque, pagina = 0) {
   const grupos = ok(await supabase.rpc('listar_grupos', {
-    p_busca: f.busca?.trim() || null,
-    p_status: f.status ?? null,
-    p_prefixo: f.prefixo ?? null,
-    p_tamanho: f.tamanho ?? null,
-    p_tipo: f.tipo ?? null,
-    p_condicao: f.condicao ?? null,
-    p_pertence: f.pertence ?? null,
-    p_site: f.site ?? null,
+    ...paramsFiltros(f),
     p_limite: POR_PAGINA,
     p_offset: pagina * POR_PAGINA,
   })) as GrupoProduto[];
@@ -88,7 +76,7 @@ export async function unidadesDoGrupo(grupo: string): Promise<Produto[]> {
 export async function todosProdutos(f: FiltrosEstoque): Promise<Produto[]> {
   const todos: Produto[] = [];
   for (let i = 0; ; i += 1000) {
-    const r = await aplicarFiltros(supabase.from('produtos_lista').select('*'), f).order('prefixo').order('numero').range(i, i + 999);
+    const r = await supabase.rpc('listar_unidades', paramsFiltros(f)).order('prefixo').order('numero').range(i, i + 999);
     if (r.error) throw r.error;
     todos.push(...(r.data as Produto[]));
     if (r.data.length < 1000) return todos;

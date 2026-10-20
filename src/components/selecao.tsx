@@ -83,7 +83,7 @@ export function Selecao(props: Props) {
         <Pressable style={s.fundo} onPress={fechar}>
           <Pressable style={[s.caixa, { backgroundColor: c.superficie }]} onPress={() => {}}>
             <T v="forte">{rotulo ?? placeholder}</T>
-            {opcoes.length > 20 && <Campo placeholder="Buscar…" value={busca} onChangeText={setBusca} />}
+            {opcoes.length > 20 && <Campo placeholder="Buscar…" value={busca} onChangeText={setBusca} limpar />}
             <FlatList
               data={filtradas}
               keyExtractor={(o) => o.valor}

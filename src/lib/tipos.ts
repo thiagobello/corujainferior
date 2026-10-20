@@ -5,7 +5,7 @@ export type Tipo = 'Réplica' | 'Original' | 'Própria';
 export type Condicao = 'Nova' | 'Usada';
 export type Pertence = 'Coruja Sports' | 'Arquibancada Inferior' | 'Concessão' | 'Ambos';
 export type FormaPagamento =
-  | 'pix' | 'debito' | 'credito_1x' | 'credito_2x' | 'credito_3x'
+  | 'pix' | 'dinheiro' | 'debito' | 'credito_1x' | 'credito_2x' | 'credito_3x'
   | 'site_coruja' | 'site_arquibancada' // legado (taxa única por site, migration 15); hoje o site é o canal
   | 'outro';
 export type { Canal };
@@ -15,10 +15,20 @@ export const STATUS: Status[] = ['Disponível', 'Vendida', 'Reservada', 'Emprest
 export const TIPOS: Tipo[] = ['Réplica', 'Original', 'Própria'];
 export const CONDICOES: Condicao[] = ['Nova', 'Usada'];
 export const PERTENCE: Pertence[] = ['Coruja Sports', 'Arquibancada Inferior', 'Ambos', 'Concessão'];
+/** Formas com taxa configurável (Mais › Taxas), em todos os canais. */
 export const FORMAS_VENDA: FormaPagamento[] = ['pix', 'debito', 'credito_1x', 'credito_2x', 'credito_3x'];
+
+/**
+ * Formas oferecidas na venda. Dinheiro só na loja e sem taxa (o banco força
+ * 0%; não tem linha em `taxas`).
+ */
+export function formasDoCanal(canal: Canal): FormaPagamento[] {
+  return canal === 'loja' ? ['pix', 'dinheiro', ...FORMAS_VENDA.slice(1)] : FORMAS_VENDA;
+}
 
 export const ROTULO_FORMA: Record<FormaPagamento, string> = {
   pix: 'Pix',
+  dinheiro: 'Dinheiro',
   debito: 'Débito',
   credito_1x: 'Crédito 1x',
   credito_2x: 'Crédito 2x',

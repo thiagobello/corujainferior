@@ -142,8 +142,8 @@ export default function Estoque() {
           value={busca}
           onChangeText={setBusca}
           autoCorrect={false}
-          clearButtonMode="while-editing"
           returnKeyType="search"
+          limpar
         />
         <Botao
           compacto

@@ -197,23 +197,45 @@ export function Campo({
   erro,
   ajuda,
   estilo,
+  limpar,
   ...props
-}: TextInputProps & { rotulo?: string; erro?: string | null; ajuda?: string; estilo?: StyleProp<ViewStyle> }) {
+}: TextInputProps & {
+  rotulo?: string;
+  erro?: string | null;
+  ajuda?: string;
+  estilo?: StyleProp<ViewStyle>;
+  /** Campo de busca: mostra um X que apaga o texto (só quando há texto). */
+  limpar?: boolean;
+}) {
   const c = useCores();
+  const mostrarX = !!limpar && !!props.value;
   return (
     // minWidth em vez de flexBasis: em coluna, flexBasis viraria altura.
     <View style={[{ gap: 4, flexGrow: 1, flexShrink: 1, minWidth: 140 }, estilo]}>
       {rotulo && <T v="legenda">{rotulo}</T>}
-      <TextInput
-        placeholderTextColor={c.texto2}
-        {...props}
-        style={[
-          s.campo,
-          { backgroundColor: c.superficie, borderColor: erro ? c.perigo : c.borda, color: c.texto },
-          props.multiline && { minHeight: 80, textAlignVertical: 'top', paddingTop: 10 },
-          props.style,
-        ]}
-      />
+      <View style={{ justifyContent: 'center' }}>
+        <TextInput
+          placeholderTextColor={c.texto2}
+          {...props}
+          style={[
+            s.campo,
+            { backgroundColor: c.superficie, borderColor: erro ? c.perigo : c.borda, color: c.texto },
+            props.multiline && { minHeight: 80, textAlignVertical: 'top', paddingTop: 10 },
+            props.style,
+            mostrarX && { paddingRight: 44 },
+          ]}
+        />
+        {mostrarX && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Limpar busca"
+            onPress={() => props.onChangeText?.('')}
+            style={({ pressed }) => [s.limpar, { opacity: pressed ? 0.5 : 1 }]}
+          >
+            <Ionicons name="close-circle" size={20} color={c.texto2} />
+          </Pressable>
+        )}
+      </View>
       {erro ? <T v="legenda" cor={c.perigo}>{erro}</T> : ajuda ? <T v="legenda">{ajuda}</T> : null}
     </View>
   );
@@ -416,6 +438,8 @@ const s = StyleSheet.create({
   },
   botaoCompacto: { minHeight: 36, paddingHorizontal: ESPACO.md },
   campo: { minHeight: 46, borderWidth: 1, borderRadius: 10, paddingHorizontal: ESPACO.md, fontSize: 16 },
+  // Área de toque de 44 px dentro do campo, colada à direita.
+  limpar: { position: 'absolute', right: 0, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, minHeight: 36, justifyContent: 'center' },
   selo: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, alignSelf: 'flex-start' },
   estat: { flexGrow: 1, flexBasis: 150, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, padding: ESPACO.md, gap: 2 },

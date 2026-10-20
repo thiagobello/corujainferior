@@ -25,6 +25,7 @@ Onde a regra é garantida está indicado entre colchetes. "[banco]" significa qu
 - **Autocomplete da descrição:** ao digitar (2+ letras), o app sugere modelos já cadastrados com nome parecido (ignora acentos, maiúsculas e ordem das palavras). Tocar num modelo **vincula**: copia categoria, descrição exata, cor, tipo, condição, pertence/consignante/acordo, custo, preço e **a mesma foto** (mesmo arquivo). Mudar a descrição desfaz o vínculo.
 - **Agrupamento no estoque:** produtos com a **mesma descrição** (ignorando maiúsculas e espaços nas pontas) aparecem como um item só, com tamanhos e quantidades disponíveis. Um grupo de 1 unidade abre direto o produto.
 - Filtros do estoque valem por unidade (o grupo mostra só as unidades filtradas).
+- **Busca do estoque:** ignora acentos e maiúsculas ("sao paulo" acha "São Paulo"), acha trechos em qualquer posição ("corin" acha "Corinthians") e, com várias palavras, exige todas em qualquer ordem ("2009 corinthians"). Procura em descrição, código, cor, tamanho e categoria; o código também é achado pelo início (`M13`) e escrito de outra forma (`M01386` = `M1386`). A exportação usa o mesmo filtro. [banco: `listar_unidades`/`casa_busca`]
 
 ## 3. Categorias e códigos
 
@@ -57,7 +58,8 @@ Onde a regra é garantida está indicado entre colchetes. "[banco]" significa qu
 
 ## 6. Taxas de pagamento
 
-- Formas: **Pix, Débito, Crédito 1x, 2x, 3x**, em cada canal (**Loja**, **Site Coruja**, **Site Arquibancada**). **A taxa é por canal + forma** (ex.: Site Arquibancada · Crédito 3x tem percentual próprio). Configuráveis em Mais › Taxas (três blocos) e começam em 0%. `outro` e as formas `site_coruja`/`site_arquibancada` (taxa única por site, primeira versão) existem só como legado e são recusadas em vendas novas. [banco]
+- **Dinheiro (só no canal Loja):** **sem taxa** — o líquido é o próprio valor da venda. Não aparece em Mais › Taxas e não é configurável: o banco força 0% (não há linha de Dinheiro em `taxas`; um check impede criar). Divisão (§8), concessão e repasse (§9) seguem as regras de sempre sobre esse líquido. Recusado nos canais dos sites. [banco: `registrar_venda`, `atualizar_taxa`, check `taxas_sem_dinheiro`]
+- Formas com taxa: **Pix, Débito, Crédito 1x, 2x, 3x**, em cada canal (**Loja**, **Site Coruja**, **Site Arquibancada**). **A taxa é por canal + forma** (ex.: Site Arquibancada · Crédito 3x tem percentual próprio). Configuráveis em Mais › Taxas (três blocos) e começam em 0%. `outro` e as formas `site_coruja`/`site_arquibancada` (taxa única por site, primeira versão) existem só como legado e são recusadas em vendas novas. [banco]
 - A loja/marca absorve a taxa do site da mesma forma que a da maquininha (mesmas fórmulas abaixo); divisão e repasse são sempre sobre o líquido após a taxa da combinação.
 - **A loja absorve a taxa:** cliente paga o valor efetivo.
   - `taxa = round(bruto × percentual / 100, 2)` (meio para longe do zero)
@@ -69,7 +71,7 @@ Onde a regra é garantida está indicado entre colchetes. "[banco]" significa qu
 
 ## 7. Recebimentos
 
-- **Pix:** recebido na hora (data da venda).
+- **Pix e Dinheiro:** recebidos na hora (data da venda).
 - **Débito e crédito (1x/2x/3x):** **um único recebimento no próximo dia útil** (seg→ter … sex/sáb/dom→segunda), contado como recebido nessa data (liquidação automática). **Não há parcelas futuras.** Feriados não são considerados.
 - **Sites:** cada forma de cada site começa com **um recebimento no próximo dia útil** (mais conservador). O admin muda por linha para **na hora** em Mais › Taxas (coluna `taxas.liquidacao`, função `definir_liquidacao_taxa`; só os canais dos sites aceitam essa troca — a loja segue Pix na hora e cartão no próximo dia útil). [banco]
 - **Quem recebe:** loja e site Coruja → Coruja; site Arquibancada → **Arquibancada** (`pagamentos_situacao.recebedor`). O que entra na conta da Arquibancada **não conta** no recebido/a receber da Coruja: aparece separado no Painel ("Com a Arquibancada (site)") e em Mais › A receber (seção "Site Arquibancada").

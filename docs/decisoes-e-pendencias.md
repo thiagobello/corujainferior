@@ -29,6 +29,8 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 | 2026-10-15 | Concessão vendida no site da Arquibancada: só a comissão da Coruja abate o repasse (toda, se a marca restante é Coruja; a metade, se Ambos); comissão da Arquibancada não gera repasse; **o valor do proprietário fica fora do acerto entre as marcas** | Correção do Thiago (2026-10-15): o proprietário recebe por conta própria. Substitui a primeira versão, em que o valor do proprietário também abatia o repasse |
 | 2026-10-15 | Recebimento dos sites começa no **próximo dia útil** (conservador), configurável para "na hora" em Mais › Taxas; o recebido pela Arquibancada não entra no recebido/a receber da Coruja | Não inflar o caixa da Coruja nem contar como recebido antes de cair |
 | 2026-10-15 | **Taxa por canal + forma** (Pix, Débito, Crédito 1x/2x/3x em cada canal; recebimento editável por linha nos sites). Canal informado em `registrar_venda`. Substitui a primeira versão (taxa única por site, canal deduzido da forma por gatilho; formas `site_*` viram legado). Migration 16 por cima da 14/15 | Pedido do Thiago (2026-10-15): os sites também cobram taxas diferentes por forma de pagamento |
+| 2026-10-20 | Forma de pagamento **Dinheiro**: sem taxa (0% forçado no banco, fora de Mais › Taxas), recebido na hora, divisão/concessão/repasse pelas regras de sempre. **Só no canal Loja** (chip some nos sites; o banco recusa) — venda pelo site não é paga em espécie | Pedido do Thiago (2026-10-20). Canal restrito por decisão técnica; se um dia houver retirada paga em dinheiro de venda do site, liberar em `registrar_venda` e em `formasDoCanal` |
+| 2026-10-20 | Busca do estoque ampla: sem acento/maiúsculas, trechos em qualquer posição, todas as palavras em qualquer ordem; em descrição, código, cor, tamanho e categoria. X para limpar nos campos de busca (`Campo limpar`). Feita no banco com `sem_acento` (a extensão `unaccent` não existe no PGlite dos testes); exportação usa o mesmo filtro | Pedido do Thiago (2026-10-20) |
 | 2026-10-13 | Publicação recomendada: web/PWA na Cloudflare (Workers ou Pages) + Supabase gratuito | 3 iPhones + 1 tablet + navegador, custo zero (iOS nativo custaria US$ 99/ano) |
 
 ## Legados (não usar em código novo)
@@ -50,6 +52,7 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 - **Custo unitário** opcional na venda avulsa (hoje lucro = valor vendido).
 - **Observações do PDF** configuráveis (hoje fixas em `OBSERVACOES_ORCAMENTO`).
 - **Logo em alta resolução** (atual 160×140 recortada da tabela de preços).
+- **Dinheiro e busca ampla — validar no Supabase real:** rodar as migrations 17 (sozinha), 18 e 19 e conferir Baixa Rápida com Dinheiro e a busca/X do Estoque; validados só por testes do banco, typecheck/lint/build.
 - **Venda pelo site — validar no Supabase real:** a tela logada (Baixa Rápida com canal + forma, Repasses com saldo negativo, Taxas com três blocos) foi validada só por typecheck/lint/build e pelos testes do banco.
 - Supabase ainda não conectado durante o desenvolvimento: telas logadas foram validadas por typecheck/lint/build e prévias, e as regras por testes no PGlite.
 

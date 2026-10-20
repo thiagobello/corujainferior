@@ -3,7 +3,8 @@
 // finais (status, taxa, divisão, idempotência) ficam no banco (registrar_venda).
 // Canal (loja, site Coruja, site Arquibancada) e forma são escolhidos à parte;
 // a taxa vem da combinação. No site da Arquibancada o dinheiro entra na conta
-// dela: a parte da Coruja abate o repasse.
+// dela: a parte da Coruja abate o repasse. Dinheiro (só na loja) não tem
+// taxa: o líquido é o valor da venda e a divisão segue as regras de sempre.
 import { randomUUID } from 'expo-crypto';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,7 +16,7 @@ import { brl, calcularVenda, centavosParaTexto, dividirLiquido, efeitoRepasse, l
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO, useCores } from '@/lib/tema';
 import {
-  CANAIS, FORMAS_VENDA, PERTENCE, ROTULO_CANAL, ROTULO_FORMA, dataBR, hojeISO,
+  CANAIS, PERTENCE, ROTULO_CANAL, ROTULO_FORMA, dataBR, formasDoCanal, hojeISO,
   type Consignante, type FormaPagamento, type Pertence, type Produto, type Taxa,
 } from '@/lib/tipos';
 import { verificarAlertasSite } from './alerta-site';
@@ -156,7 +157,8 @@ export function VendaForm({
 
   const taxa = taxas.find((t) => t.canal === canal && t.forma === forma);
   const taxasDoCanal = taxas.filter((t) => t.canal === canal);
-  const pct = taxa?.percentual ?? 0;
+  const semTaxa = forma === 'dinheiro'; // banco força 0%; não há linha em taxas
+  const pct = semTaxa ? 0 : (taxa?.percentual ?? 0);
   const rotuloTaxa = forma
     ? `Taxa ${canal === 'loja' ? '' : `${ROTULO_CANAL[canal]} · `}${ROTULO_FORMA[forma]} (${pct.toLocaleString('pt-BR')}%)`
     : 'Taxa';
@@ -245,7 +247,7 @@ export function VendaForm({
           {canal !== 'loja' && <ParValor rotulo="Canal" valor={ROTULO_CANAL[canal]} />}
           <ParValor rotulo="Forma de pagamento" valor={ROTULO_FORMA[forma!]} />
           {totais.desconto !== 0 && <ParValor rotulo="Desconto" valor={brl(totais.desconto)} />}
-          <ParValor rotulo={`Taxa (${pct.toLocaleString('pt-BR')}%)`} valor={`− ${brl(totais.taxa)}`} />
+          {!semTaxa && <ParValor rotulo={`Taxa (${pct.toLocaleString('pt-BR')}%)`} valor={`− ${brl(totais.taxa)}`} />}
           <ParValor rotulo="Cliente paga" valor={brl(totais.bruto)} destaque />
           <ParValor rotulo={`${canal === 'site_arquibancada' ? 'Arquibancada' : 'Coruja'} recebe (líquido)`} valor={brl(totais.liquido)} destaque />
           {pendente && <Aviso texto="Pendente: baixe ao receber." />}
@@ -439,7 +441,7 @@ export function VendaForm({
                 <>
                   <Separador />
                   {i.quantidade > 1 && <ParValor rotulo={`Total (${i.quantidade} × ${brl(lerValor(i.valorTexto))})`} valor={brl(x.r.bruto)} destaque />}
-                  {forma && <ParValor rotulo={rotuloTaxa} valor={`− ${brl(x.r.taxa)}`} />}
+                  {forma && !semTaxa && <ParValor rotulo={rotuloTaxa} valor={`− ${brl(x.r.taxa)}`} />}
                   {forma && <ParValor rotulo="Líquido" valor={brl(x.r.liquido)} destaque />}
                   {forma && x.div && <DivisaoLinha div={x.div} />}
                   {forma && x.div && canal === 'site_arquibancada' && <RepasseLinha valor={efeitoRepasse(x.div, canal)} />}
@@ -484,7 +486,7 @@ export function VendaForm({
             )}
             {x.r && forma && (
               <>
-                <ParValor rotulo={rotuloTaxa} valor={`− ${brl(x.r.taxa)}`} />
+                {!semTaxa && <ParValor rotulo={rotuloTaxa} valor={`− ${brl(x.r.taxa)}`} />}
                 <ParValor rotulo="Líquido" valor={brl(x.r.liquido)} destaque />
                 <ParValor rotulo="Custo" valor={x.r.custoInformado ? brl(paraCentavos(i.produto.custo)) : 'não informado'} />
                 <ParValor rotulo="Lucro bruto" valor={brl(x.r.lucroBruto)} />
@@ -500,10 +502,23 @@ export function VendaForm({
       {itens.length > 0 && (
         <>
           <Secao titulo="Pagamento">
-            <Chips opcoes={CANAIS} rotulos={ROTULO_CANAL} valor={canal} onChange={(v) => setCanal(v ?? 'loja')} />
             <Chips
-              opcoes={FORMAS_VENDA}
-              rotulos={Object.fromEntries(taxasDoCanal.map((t) => [t.forma, `${t.rotulo} · ${t.percentual.toLocaleString('pt-BR')}%`]))}
+              opcoes={CANAIS}
+              rotulos={ROTULO_CANAL}
+              valor={canal}
+              onChange={(v) => {
+                const novo = v ?? 'loja';
+                setCanal(novo);
+                // Dinheiro só existe na loja: ao trocar para o site, escolhe de novo.
+                if (forma && !formasDoCanal(novo).includes(forma)) setForma(null);
+              }}
+            />
+            <Chips
+              opcoes={formasDoCanal(canal)}
+              rotulos={{
+                ...Object.fromEntries(taxasDoCanal.map((t) => [t.forma, `${t.rotulo} · ${t.percentual.toLocaleString('pt-BR')}%`])),
+                dinheiro: ROTULO_FORMA.dinheiro,
+              }}
               valor={forma}
               onChange={setForma}
             />
@@ -528,7 +543,7 @@ export function VendaForm({
             <Cartao>
               <T v="forte">Totais</T>
               <ParValor rotulo="Cliente paga" valor={brl(totais.bruto)} destaque />
-              <ParValor rotulo="Taxas" valor={`− ${brl(totais.taxa)}`} />
+              {!semTaxa && <ParValor rotulo="Taxas" valor={`− ${brl(totais.taxa)}`} />}
               <ParValor rotulo="Líquido" valor={brl(totais.liquido)} destaque />
               <ParValor rotulo="Resultado" valor={brl(totais.resultado)} />
               <DivisaoLinha div={totais.div} />
