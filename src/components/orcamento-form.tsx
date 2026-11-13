@@ -378,7 +378,7 @@ export function OrcamentoForm({
         }}
       />
 
-      <Campo rotulo="Anotações (não vão no PDF)" value={obs} onChangeText={setObs} multiline />
+      <Campo rotulo="Anotações (não vão na imagem)" value={obs} onChangeText={setObs} multiline />
 
       <Cartao>
         {pecas.length > 1 &&

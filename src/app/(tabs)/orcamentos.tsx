@@ -6,7 +6,7 @@ import { SeloOrcamento } from '@/components/status-orcamento';
 import { Botao, Campo, Cartao, Carregando, Chips, ErroCaixa, Foto, Linha, T, Tela, Vazio } from '@/components/ui';
 import { listarOrcamentos, listarStatusOrcamento } from '@/lib/api';
 import { brlReais } from '@/lib/dinheiro';
-import { numeroOrcamento } from '@/lib/orcamento-html';
+import { numeroOrcamento } from '@/lib/orcamento';
 import { ESPACO } from '@/lib/tema';
 import { dataBR } from '@/lib/tipos';
 import { useConsulta } from '@/lib/useConsulta';

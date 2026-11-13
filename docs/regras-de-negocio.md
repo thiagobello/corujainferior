@@ -113,7 +113,7 @@ Sobre o **líquido** (após a taxa), por item:
 
 ## 11. Orçamentos de reforma
 
-- Cliente (nome obrigatório), contato (telefone ou @instagram) e **uma ou mais camisas**. Cada camisa: nome (ex.: "Corinthians 2009"), até 4 fotos (**só no app, não vão para o PDF**), serviços e itens personalizados, com **valor da camisa**; o orçamento tem **valor total**.
+- Cliente (nome obrigatório), contato (telefone ou @instagram) e **uma ou mais camisas**. Cada camisa: nome (ex.: "Corinthians 2009"), até 4 fotos (**só no app, não vão para a imagem**), serviços e itens personalizados, com **valor da camisa**; o orçamento tem **valor total**.
 - **Serviços (catálogo editável)** separados por posição:
   - **Frente:** Limpeza/Remoção de patrocínios R$40, Escudo R$45, Logo R$30, Peito R$30, Omoplatas (par) R$30, Master frontal cor única R$30 / colorido R$45, Barra R$30.
   - **Verso:** Limpeza/Remoção de patrocínios R$40, Nome + número R$40, Master costa cor única R$30 / colorido R$45, Barra R$30.
@@ -121,11 +121,11 @@ Sobre o **líquido** (após a taxa), por item:
 - Serviço "a partir de": o valor é **digitado** no orçamento (aviso se abaixo do mínimo) e há campo "o que será feito". Serviços fixos têm quantidade.
 - A descrição gravada inclui a posição: "Escudo (frente)", "Master costa – colorido (verso)".
 - **Todo orçamento nasce Pendente.** Status configuráveis: Pendente (padrão, não desativável), Aprovado, Recusado (ativos); A fazer, Lavagem, Aguardando material, Pronta para retirada (cadastrados, inativos até ativar); novos status podem ser criados. Toda mudança fica no histórico.
-- **PDF A4** com a logo, número e data, cliente/contato, um bloco por camisa (serviços + valor da camisa), valor total e as observações fixas:
+- **Imagem PNG** (1080 px de largura, altura conforme as camisas) para encaminhar pelo WhatsApp, com a logo, número e data, cliente/contato, um bloco por camisa (serviços + valor da camisa), valor total e as observações fixas:
   - Nem sempre é possível a remoção de todas as manchas.
   - Tempo médio para conclusão – 20 dias úteis.
   - Formas de pagamento: Pix e Cartão de Crédito – até 3x sem juros.
-- Entrega do PDF: no app nativo abre o compartilhar; na web (inclusive atalho no iPhone) o PDF é gerado no aparelho e a pessoa toca em **Compartilhar** (WhatsApp, Arquivos…) ou **Baixar**. Editar o orçamento invalida o PDF gerado antes.
+- Entrega da imagem: no app nativo abre o compartilhar; na web (inclusive atalho no iPhone) a imagem é gerada no aparelho e a pessoa toca em **Compartilhar** (WhatsApp, Fotos…) ou **Baixar**. Editar o orçamento invalida a imagem gerada antes.
 - Alterar valor de serviço no catálogo não muda orçamentos já criados.
 
 ## 12. Painel financeiro (Mais › Painel)

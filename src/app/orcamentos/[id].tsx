@@ -1,15 +1,16 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
 
 import { useDialogos } from '@/components/dialogos';
+import { GeradorImagemOrcamento, type GeradorImagem } from '@/components/orcamento-imagem';
 import { Selecao } from '@/components/selecao';
 import { SeloOrcamento } from '@/components/status-orcamento';
 import { Aviso, Botao, Cartao, Carregando, ErroCaixa, Foto, Linha, ParValor, Secao, Separador, T, Tela } from '@/components/ui';
 import { alterarStatusOrcamento, listarStatusOrcamento, obterOrcamento } from '@/lib/api';
 import { brlReais } from '@/lib/dinheiro';
-import { numeroOrcamento } from '@/lib/orcamento-html';
-import { baixarPdf, compartilharPdf, criarPdfOrcamento, podeCompartilhar, type ArquivoPdf } from '@/lib/orcamento-pdf';
+import { numeroOrcamento } from '@/lib/orcamento';
+import { baixarImagem, compartilharImagem, podeCompartilhar, type ArquivoImagem } from '@/lib/orcamento-imagem';
 import { mensagemErro } from '@/lib/supabase';
 import { ESPACO } from '@/lib/tema';
 import { dataBR, dataHoraBR } from '@/lib/tipos';
@@ -22,9 +23,10 @@ export default function DetalheOrcamento() {
     const [o, status] = await Promise.all([obterOrcamento(id), listarStatusOrcamento()]);
     return { ...o, status };
   }, [id]);
+  const gerador = useRef<GeradorImagem>(null);
   const [gerando, setGerando] = useState(false);
-  // PDF pronto (web): o compartilhar precisa sair de um toque do usuário.
-  const [pdfPronto, setPdfPronto] = useState<{ arquivo: ArquivoPdf; versao: string } | null>(null);
+  // Imagem pronta (web): o compartilhar precisa sair de um toque do usuário.
+  const [imagemPronta, setImagemPronta] = useState<{ arquivo: ArquivoImagem; versao: string } | null>(null);
   const [mudando, setMudando] = useState(false);
 
   if (erro) return <Tela onAtualizar={recarregar}><ErroCaixa erro={erro} onTentar={recarregar} /></Tela>;
@@ -32,12 +34,13 @@ export default function DetalheOrcamento() {
   const { orcamento: o, pecas, itens, historico, status } = dados;
   const rotulo = (cod: string | null) => status.find((s) => s.codigo === cod)?.rotulo ?? cod ?? '';
 
-  async function gerarPdf() {
+  async function gerarImagem() {
+    if (!gerador.current) return;
     setGerando(true);
     try {
-      const arquivo = await criarPdfOrcamento(o, pecas, itens);
-      if (Platform.OS === 'web') setPdfPronto({ arquivo, versao: o.atualizado_em });
-      else await compartilharPdf(arquivo);
+      const arquivo = await gerador.current.gerar();
+      if (Platform.OS === 'web') setImagemPronta({ arquivo, versao: o.atualizado_em });
+      else await compartilharImagem(arquivo);
     } catch (e) {
       avisar(mensagemErro(e), 'erro');
     } finally {
@@ -45,18 +48,18 @@ export default function DetalheOrcamento() {
     }
   }
 
-  async function entregarPdf(acao: 'compartilhar' | 'baixar') {
-    if (!pdfPronto) return;
+  async function entregarImagem(acao: 'compartilhar' | 'baixar') {
+    if (!imagemPronta) return;
     try {
-      const r = acao === 'compartilhar' ? await compartilharPdf(pdfPronto.arquivo) : await baixarPdf(pdfPronto.arquivo);
-      if (r === 'baixado') avisar('PDF baixado');
+      const r = acao === 'compartilhar' ? await compartilharImagem(imagemPronta.arquivo) : await baixarImagem(imagemPronta.arquivo);
+      if (r === 'baixado') avisar('Imagem baixada');
     } catch (e) {
       avisar(mensagemErro(e), 'erro');
     }
   }
 
-  // PDF gerado antes de uma edição fica desatualizado.
-  const pdf = pdfPronto?.versao === o.atualizado_em ? pdfPronto.arquivo : null;
+  // Imagem gerada antes de uma edição fica desatualizada.
+  const imagem = imagemPronta?.versao === o.atualizado_em ? imagemPronta.arquivo : null;
 
   async function mudarStatus(novo: string | null) {
     if (!novo || novo === o.status) return;
@@ -77,6 +80,7 @@ export default function DetalheOrcamento() {
   return (
     <Tela atualizando={carregando} onAtualizar={recarregar}>
       <Stack.Screen options={{ title: `Orçamento ${numeroOrcamento(o.numero)}` }} />
+      <GeradorImagemOrcamento ref={gerador} orcamento={o} pecas={pecas} itens={itens} />
       <View style={{ gap: 4 }}>
         <Linha estilo={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <T v="titulo" estilo={{ flex: 1 }}>{o.cliente_nome}</T>
@@ -88,18 +92,18 @@ export default function DetalheOrcamento() {
       </View>
 
       <Linha>
-        <Botao titulo="Gerar PDF" icone="document-text-outline" onPress={gerarPdf} carregando={gerando} estilo={{ flex: 1 }} />
+        <Botao titulo="Gerar imagem" icone="image-outline" onPress={gerarImagem} carregando={gerando} estilo={{ flex: 1 }} />
         <Botao v="secundario" titulo="Editar" icone="create-outline" onPress={() => router.push(`/orcamentos/editar/${o.id}`)} estilo={{ flex: 1 }} />
       </Linha>
 
-      {pdf && (
+      {imagem && (
         <Aviso
           tipo="sucesso"
-          texto="PDF pronto."
+          texto="Imagem pronta."
           acao={
             <Linha gap={ESPACO.xs}>
-              {podeCompartilhar(pdf) && <Botao compacto titulo="Compartilhar" icone="share-outline" onPress={() => entregarPdf('compartilhar')} />}
-              <Botao compacto v="secundario" titulo="Baixar" icone="download-outline" onPress={() => entregarPdf('baixar')} />
+              {podeCompartilhar(imagem) && <Botao compacto titulo="Compartilhar" icone="share-outline" onPress={() => entregarImagem('compartilhar')} />}
+              <Botao compacto v="secundario" titulo="Baixar" icone="download-outline" onPress={() => entregarImagem('baixar')} />
             </Linha>
           }
         />

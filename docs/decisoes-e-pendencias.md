@@ -22,6 +22,7 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 | 2026-10-14 | Bloco único "Tamanhos e códigos" (linha por tamanho com faixa de códigos editável) | Layout mais simples |
 | 2026-10-14 | Uso no iPhone como atalho em tela cheia (Safari › Adicionar à Tela de Início › Abrir como App Web); `viewport-fit=cover` para o menu não ser cortado no iPhone 17 Pro | Pedido do dono |
 | 2026-10-14 | PDF do orçamento na web gerado no aparelho (pdfmake) e entregue por Compartilhar/Baixar | Janela de impressão quebrava no iPhone com o site como atalho em tela cheia |
+| 2026-11-13 | **Orçamento enviado como imagem (PNG) em vez de PDF**: botão "Gerar imagem"; web desenha em Canvas 2D, app captura uma view (`react-native-view-shot`). pdfmake e expo-print removidos | Pedido do Thiago, para encaminhar pelo WhatsApp. Substitui o PDF de 2026-10-13/14 |
 | 2026-10-15 | Backup local semanal (segunda 15h) via launchd, com notificação, mantendo só o último backup válido | Supabase gratuito não tem backup automático |
 | 2026-10-14 | Revisão de todos os textos: títulos, rótulos, avisos e confirmações curtos e objetivos (guia em `docs/app.md` › Textos da interface). Telas renomeadas: Painel, A receber, Repasses, Reservas, Taxas, Serviços e status, Usuários, Venda | Interface menos poluída |
 | 2026-10-15 | Fotos comprimidas no aparelho antes do envio: lado maior 1280 px, JPEG 0,7 (~200 KB em vez de 3–5 MB). Compressão no momento da escolha, não no Cadastrar | Storage gratuito (1 GB) enchendo e cadastro lento pelo upload |
@@ -45,13 +46,14 @@ Registro das decisões tomadas com o dono do sistema (Thiago). Antes de mudar al
 
 - **Escanear Tag (OCR):** ler o código manuscrito da etiqueta pela câmera. A tela `src/app/scanner.tsx` já faz a busca manual. Falta escolher o provedor (Claude Vision ou Google Cloud Vision) e criar uma Edge Function com a chave no servidor. Regra: sempre confirmar o código lido antes de abrir; nunca vender automaticamente.
 - **Publicação:** passo a passo em `publicacao.md` (`wrangler.jsonc`/`vercel.json` já configurados). Falta: manifest/ícone de PWA.
-- **Exportações XLSX/CSV na web** usam download direto (`exportar.web.ts`); no iPhone em tela cheia podem precisar do mesmo tratamento do PDF (Web Share após toque).
+- **Exportações XLSX/CSV na web** usam download direto (`exportar.web.ts`); no iPhone em tela cheia podem precisar do mesmo tratamento da imagem do orçamento (Web Share após toque).
 - **Fotos antigas grandes:** as 121 fotos enviadas antes da compressão somam ~374 MB. `scripts/recomprimir-fotos.sh` (a partir do último backup) as reduz para ~34 MB e, com `--enviar` + `SUPABASE_SERVICE_ROLE_KEY` em `.env.backup.local`, regrava no mesmo caminho (banco não muda). Testado só localmente; falta o dono rodar.
 - **Pré-envio da foto** assim que é escolhida (ganharia ~0,5 s no Cadastrar, mas deixa arquivos órfãos se o cadastro for abandonado). Não feito: com a compressão o envio já é curto.
 - **Feriados** no cálculo do próximo dia útil (hoje só fins de semana).
 - **Custo unitário** opcional na venda avulsa (hoje lucro = valor vendido).
-- **Observações do PDF** configuráveis (hoje fixas em `OBSERVACOES_ORCAMENTO`).
-- **Logo em alta resolução** (atual 160×140 recortada da tabela de preços).
+- **Observações da imagem do orçamento** configuráveis (hoje fixas em `OBSERVACOES_ORCAMENTO`).
+- **Logo em alta resolução** (atual 160×140 recortada da tabela de preços; na imagem de 1080 px aparece levemente ampliada).
+- **Imagem do orçamento — validar nos aparelhos:** compartilhar no iPhone em tela cheia (Web Share com PNG) e no tablet Android, e a captura no app nativo (view fora da tela + `react-native-view-shot`); validados só o desenho em Chrome headless e typecheck/lint/build.
 - **Dinheiro e busca ampla — validar no Supabase real:** rodar as migrations 17 (sozinha), 18 e 19 e conferir Baixa Rápida com Dinheiro e a busca/X do Estoque; validados só por testes do banco, typecheck/lint/build.
 - **Venda pelo site — validar no Supabase real:** a tela logada (Baixa Rápida com canal + forma, Repasses com saldo negativo, Taxas com três blocos) foi validada só por typecheck/lint/build e pelos testes do banco.
 - Supabase ainda não conectado durante o desenvolvimento: telas logadas foram validadas por typecheck/lint/build e prévias, e as regras por testes no PGlite.

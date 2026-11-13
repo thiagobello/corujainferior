@@ -9,7 +9,7 @@
 | Backend | **Supabase**: Postgres, Auth (e-mail/senha), Storage (bucket `produtos`) | Plano gratuito. Cliente `@supabase/supabase-js`. |
 | Sessão | `expo-sqlite/localStorage` no celular; `window.localStorage` na web | Arquivos `src/lib/armazenamento.ts` / `.web.ts`. |
 | Fotos | `expo-image-picker` (câmera/galeria), `expo-image-manipulator` (compressão no celular), `expo-image` (exibição) | Toda foto é reduzida ao ser escolhida (lado maior 1280 px, JPEG 0,7; ~200 KB) e enviada por `src/lib/fotos.ts` ao bucket `produtos`. Na web a compressão usa canvas (`comprimir-foto.web.ts`), não o manipulator. |
-| PDF (orçamentos) | Celular: `expo-print` (HTML de `orcamento-html.ts`) + `expo-sharing`. Web: **pdfmake 0.3** gera o arquivo no aparelho (`orcamento-pdfmake.ts`, carregado sob demanda) + Web Share (`navigator.share`) ou download | Na web não usar `window.open`/`print()`: falham no iPhone com o site como atalho em tela cheia. |
+| Imagem do orçamento (PNG 1080 px) | Web: **Canvas 2D** desenha no aparelho (`orcamento-canvas.ts`, sem biblioteca) + Web Share com arquivo (`navigator.share`) ou download. Celular: view fora da tela capturada com **`react-native-view-shot`** (`components/orcamento-imagem.tsx`) + `expo-sharing` | Na web não usar `window.open`/`print()`: falham no iPhone com o site como atalho em tela cheia. `react-native-view-shot` vem no Expo Go (SDK 57); em build próprio entra com o prebuild, sem plugin. |
 | Exportação XLSX/CSV | SheetJS (`xlsx` 0.20.3 via CDN oficial) | `src/lib/exportar*.ts` (download na web, compartilhar no celular). |
 | IDs | `expo-crypto` (`randomUUID`) | Usado na chave de idempotência das vendas. |
 | Ícones | `@expo/vector-icons` (Ionicons) | |
@@ -38,7 +38,7 @@ docs/                     Esta documentação
 .claude/agents/           Agentes: coruja-especialista (sistema) e coruja-backup (backup)
 ```
 
-Arquivos com sufixo `.web.ts` substituem o equivalente nativo na web (resolução do Metro). Ex.: `exportar.ts` × `exportar.web.ts`, `orcamento-pdf.ts` × `orcamento-pdf.web.ts`, `armazenamento.ts` × `armazenamento.web.ts`.
+Arquivos com sufixo `.web.ts` substituem o equivalente nativo na web (resolução do Metro). Ex.: `exportar.ts` × `exportar.web.ts`, `orcamento-imagem.ts` × `orcamento-imagem.web.ts` (e `components/orcamento-imagem.tsx` × `.web.tsx`), `armazenamento.ts` × `armazenamento.web.ts`.
 
 ## Comandos
 

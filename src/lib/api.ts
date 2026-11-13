@@ -390,7 +390,7 @@ export interface PecaParaSalvar {
 
 /** Nome na lista (dentro da seção Frente/Verso): "Master frontal – colorido". */
 export const nomeServico = (s: Pick<Servico, 'nome' | 'detalhe'>) => (s.detalhe ? `${s.nome} – ${s.detalhe}` : s.nome);
-/** Descrição gravada no orçamento/PDF, com a posição: "Master frontal – colorido (frente)". */
+/** Descrição gravada no orçamento (e na imagem), com a posição: "Master frontal – colorido (frente)". */
 export const descricaoServico = (s: Pick<Servico, 'nome' | 'detalhe' | 'grupo'>) =>
   s.grupo === 'outros' ? nomeServico(s) : `${nomeServico(s)} (${s.grupo})`;
 

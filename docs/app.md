@@ -35,7 +35,7 @@
 | `/site` | `site.tsx` | Vendidos ainda no site: removido/adiar/voltar a lembrar |
 | `/painel` | `painel.tsx` | Painel (`resumo_financeiro` + saldo de repasse), vendas por canal, exportar |
 | `/scanner` | `scanner.tsx` | Localizar por código digitado (OCR ainda não conectado) |
-| `/orcamentos/novo`, `/orcamentos/[id]`, `/orcamentos/editar/[id]` | `orcamentos/…` | Criar, ver (status, PDF, histórico) e editar orçamento |
+| `/orcamentos/novo`, `/orcamentos/[id]`, `/orcamentos/editar/[id]` | `orcamentos/…` | Criar, ver (status, imagem, histórico) e editar orçamento |
 | `/config/categorias` | `config/categorias.tsx` | Gerenciar categorias (admin) |
 | `/config/taxas` | `config/taxas.tsx` | Três blocos (Loja, Site Coruja, Site Arquibancada), cada um com Pix, Débito, Crédito 1x/2x/3x: percentual e, nos sites, recebimento (Na hora · Próximo dia útil). Admin edita |
 | `/config/consignantes` | `config/consignantes.tsx` | Proprietários de concessão e acordos |
@@ -79,9 +79,9 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 | `comprimir-foto.ts` / `.web.ts` | `comprimirFoto(uri)`: reduz para lado maior 1280 px e regrava em JPEG 0,7 (HEIC sai JPEG). Celular: `expo-image-manipulator`; web: canvas do navegador (o manipulator na web desenha a foto inteira e trava no limite de canvas do Safari) |
 | `foto-medidas.ts` | `LADO_MAXIMO`, `QUALIDADE_JPEG`, `medidasReduzidas()` |
 | `exportar.ts` / `.web.ts` / `exportar-base.ts` | XLSX/CSV: compartilhar no celular, download na web |
-| `orcamento-html.ts` | HTML A4 do orçamento + `OBSERVACOES_ORCAMENTO` + `numeroOrcamento` |
-| `orcamento-pdf.ts` / `.web.ts` | `criarPdfOrcamento` → `ArquivoPdf`; `compartilharPdf`, `baixarPdf`, `podeCompartilhar`. Celular: `expo-print` + compartilhar. Web: pdfmake (import dinâmico, chunk separado) + Web Share/download |
-| `orcamento-pdfmake.ts` | Documento do orçamento no formato pdfmake (mesmo visual do HTML) |
+| `orcamento.ts` | Conteúdo da imagem do orçamento (`conteudoOrcamento`), `OBSERVACOES_ORCAMENTO`, cores, `numeroOrcamento`, `nomeArquivoOrcamento`, tipo `ArquivoImagem` |
+| `orcamento-canvas.ts` | Web: desenha o PNG do orçamento (1080 px, altura variável) com Canvas 2D; quebra de linha manual, logo de `logo-marca.ts` |
+| `orcamento-imagem.ts` / `.web.ts` | Entrega da imagem: `compartilharImagem`, `baixarImagem`, `podeCompartilhar`. Celular: `expo-sharing`. Web: Web Share com arquivo ou download |
 | `logo-marca.ts` | Logo em base64 (gerada de `assets/images/logo-marca.jpg`) |
 | `avulsos-recentes.ts` | Últimos itens avulsos no aparelho |
 | `armazenamento.ts` / `.web.ts` | Storage da sessão do Supabase |
@@ -90,7 +90,7 @@ Ao criar rota nova: registre o título em `Stack.Screen` no `_layout.tsx` e, se 
 
 - **Cadastrar:** categoria → descrição (autocomplete/vínculo) → tamanhos e quantidades (códigos sugeridos, editáveis) → tipo/condição → pertence → valores → foto → site → `criar_produtos(dados, tamanhos[], codigos[])` (um elemento por unidade). Foto nova é enviada antes; vínculo reaproveita `foto_path`.
 - **Vender:** buscar código (`buscarPorCodigo`, aceita `SA1` p/ `SA01`) ou item avulso → valor efetivo → canal (Loja/Site Coruja/Site Arquibancada) → forma (taxa da combinação) → confirmação → `registrar_venda` com chave UUID (mantida em reenvio; nova após sucesso) → `obterVenda` → `verificarAlertasSite()`.
-- **Orçamento:** cliente → camisas (nome, fotos, serviços) → `salvar_orcamento` → detalhe → status / Gerar PDF. No celular, Gerar PDF já abre o compartilhar; **na web** gera o arquivo e mostra **Compartilhar** / **Baixar** (o compartilhar do navegador exige um toque direto do usuário, então não pode ser chamado depois da geração assíncrona).
+- **Orçamento:** cliente → camisas (nome, fotos, serviços) → `salvar_orcamento` → detalhe → status / **Gerar imagem** (PNG para encaminhar pelo WhatsApp). No celular, Gerar imagem já abre o compartilhar; **na web** gera o PNG e mostra **Compartilhar** / **Baixar** (o compartilhar do navegador exige um toque direto do usuário, então não pode ser chamado depois da geração assíncrona). A imagem gerada antes de uma edição deixa de aparecer.
 
 ## Padrões de interface
 
